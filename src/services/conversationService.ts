@@ -179,7 +179,7 @@ export class ConversationService {
         file_url,
         sent_at,
         edited_at
-      `)
+  })
  .single()
 
     if (error) throw error
