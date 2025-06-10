@@ -178,8 +178,7 @@ export class ConversationService {
         message_type,
         file_url,
         sent_at,
-        edited_at,
-        sender:users!inner(id, name, avatar_url, username)
+        edited_at
       `)
       .single()
 
