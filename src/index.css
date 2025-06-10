@@ -1,0 +1,284 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@layer base {
+  :root {
+    /* Electric Blue Gradient Colors */
+    --color-electric-blue-50: 115 199 255;
+    --color-electric-blue-100: 73 199 255;
+    --color-electric-blue-200: 30 61 224;
+    --color-electric-blue-300: 10 132 255;
+    --color-electric-blue-400: 10 132 255;
+    --color-electric-blue-500: 10 132 255;
+    --color-electric-blue-600: 30 61 224;
+    --color-electric-blue-700: 30 61 224;
+    --color-electric-blue-800: 20 40 180;
+    --color-electric-blue-900: 15 30 120;
+    
+    /* Navy Background Colors */
+    --color-navy-50: 248 250 252;
+    --color-navy-100: 241 245 249;
+    --color-navy-200: 226 232 240;
+    --color-navy-300: 203 213 225;
+    --color-navy-400: 148 163 184;
+    --color-navy-500: 100 116 139;
+    --color-navy-600: 71 85 105;
+    --color-navy-700: 51 65 85;
+    --color-navy-800: 30 41 59;
+    --color-navy-900: 15 23 42;
+    --color-navy-950: 2 6 23;
+    
+    /* Glass effect variables */
+    --glass-bg: rgba(255, 255, 255, 0.1);
+    --glass-bg-dark: rgba(15, 23, 42, 0.3);
+    --glass-border: rgba(255, 255, 255, 0.2);
+    --glass-border-dark: rgba(115, 199, 255, 0.2);
+  }
+  
+  * {
+    box-sizing: border-box;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply bg-white dark:bg-navy-950 text-navy-900 dark:text-white transition-all duration-300;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-electric-blue-500/30 rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-electric-blue-500/50;
+  }
+}
+
+@layer components {
+  /* Glass morphism base */
+  .glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+  }
+  
+  .glass-dark {
+    background: var(--glass-bg-dark);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border-dark);
+  }
+  
+  /* Modern buttons */
+  .btn {
+    @apply px-6 py-3 rounded-2xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 relative overflow-hidden;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  
+  .btn-primary {
+    @apply bg-gradient-to-r from-electric-blue-500 to-electric-blue-600 text-white shadow-lg shadow-electric-blue-500/25 hover:shadow-xl hover:shadow-electric-blue-500/40 hover:scale-[1.02] active:scale-[0.98];
+  }
+  
+  .btn-secondary {
+    @apply glass dark:glass-dark text-navy-700 dark:text-white hover:bg-white/20 dark:hover:bg-navy-800/50 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98];
+  }
+  
+  .btn-ghost {
+    @apply text-navy-600 dark:text-navy-300 hover:bg-electric-blue-50 dark:hover:bg-electric-blue-900/20 hover:text-electric-blue-600 dark:hover:text-electric-blue-400 rounded-2xl;
+  }
+  
+  /* Modern inputs */
+  .input {
+    @apply px-4 py-3 glass dark:glass-dark rounded-2xl focus:outline-none focus:ring-2 focus:ring-electric-blue-500/50 focus:border-electric-blue-500/50 transition-all duration-300 placeholder-navy-400 dark:placeholder-navy-500;
+    font-weight: 500;
+  }
+  
+  /* Modern cards */
+  .card {
+    @apply glass dark:glass-dark rounded-3xl shadow-lg shadow-navy-900/5 dark:shadow-black/20 hover:shadow-xl hover:shadow-navy-900/10 dark:hover:shadow-black/30 transition-all duration-300 hover:scale-[1.01];
+  }
+  
+  .card-elevated {
+    @apply bg-white dark:bg-navy-900 rounded-3xl shadow-xl shadow-navy-900/10 dark:shadow-black/40 border border-navy-100 dark:border-navy-800 hover:shadow-2xl hover:shadow-navy-900/15 dark:hover:shadow-black/50 transition-all duration-300 hover:scale-[1.01];
+  }
+  
+  /* Navigation styles */
+  .nav-link {
+    @apply flex items-center gap-3 px-4 py-3 rounded-2xl text-navy-600 dark:text-navy-300 hover:text-electric-blue-600 dark:hover:text-electric-blue-400 hover:bg-electric-blue-50 dark:hover:bg-electric-blue-900/20 transition-all duration-300 font-medium;
+  }
+  
+  .nav-link.active {
+    @apply bg-gradient-to-r from-electric-blue-500 to-electric-blue-600 text-white shadow-lg shadow-electric-blue-500/25;
+  }
+  
+  /* Badge styles */
+  .badge {
+    @apply px-3 py-1.5 text-xs rounded-full font-semibold;
+  }
+  
+  .badge-primary {
+    @apply bg-gradient-to-r from-electric-blue-500 to-electric-blue-600 text-white;
+  }
+  
+  .badge-secondary {
+    @apply glass dark:glass-dark text-navy-700 dark:text-navy-300;
+  }
+  
+  .badge-success {
+    @apply bg-gradient-to-r from-emerald-500 to-emerald-600 text-white;
+  }
+  
+  .badge-warning {
+    @apply bg-gradient-to-r from-amber-500 to-amber-600 text-white;
+  }
+  
+  /* Floating bottom navigation */
+  .bottom-nav {
+    @apply fixed bottom-6 left-1/2 transform -translate-x-1/2 glass dark:glass-dark rounded-3xl px-6 py-4 shadow-2xl shadow-navy-900/20 dark:shadow-black/40 z-50;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  
+  /* Gradient text */
+  .gradient-text {
+    @apply bg-gradient-to-r from-electric-blue-500 to-electric-blue-600 bg-clip-text text-transparent;
+  }
+  
+  /* Smooth animations */
+  .animate-fade-in {
+    animation: fadeIn 0.6s ease-out forwards;
+  }
+  
+  .animate-slide-up {
+    animation: slideUp 0.6s ease-out forwards;
+  }
+  
+  .animate-scale-in {
+    animation: scaleIn 0.4s ease-out forwards;
+  }
+  
+  /* Loading spinner */
+  .spinner {
+    @apply w-6 h-6 border-2 border-electric-blue-200 border-t-electric-blue-500 rounded-full animate-spin;
+  }
+  
+  /* Profile avatar with status */
+  .avatar {
+    @apply relative rounded-full overflow-hidden;
+  }
+  
+  .avatar::after {
+    content: '';
+    @apply absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white dark:border-navy-900;
+  }
+  
+  /* Hover effects */
+  .hover-lift {
+    @apply transition-all duration-300 hover:scale-[1.02] hover:shadow-xl;
+  }
+  
+  .hover-glow {
+    @apply transition-all duration-300 hover:shadow-lg hover:shadow-electric-blue-500/25;
+  }
+  
+  /* Text styles */
+  .text-gradient {
+    @apply bg-gradient-to-r from-electric-blue-500 to-electric-blue-600 bg-clip-text text-transparent;
+  }
+  
+  /* Modern form styles */
+  .form-group {
+    @apply space-y-2;
+  }
+  
+  .form-label {
+    @apply text-sm font-semibold text-navy-700 dark:text-navy-300;
+  }
+  
+  .form-error {
+    @apply text-sm text-red-500 dark:text-red-400 flex items-center gap-1;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+  .bg-dots {
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  opacity: 0.2;
+}
+
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Mobile-first responsive design */
+@media (max-width: 768px) {
+  .card {
+    @apply rounded-2xl;
+  }
+  
+  .btn {
+    @apply px-4 py-2.5 text-sm;
+  }
+  
+  .bottom-nav {
+    @apply bottom-4 left-4 right-4 transform-none translate-x-0;
+  }
+}
+
+/* Dark mode specific adjustments */
+@media (prefers-color-scheme: dark) {
+  .glass {
+    background: var(--glass-bg-dark);
+    border-color: var(--glass-border-dark);
+  }
+}
