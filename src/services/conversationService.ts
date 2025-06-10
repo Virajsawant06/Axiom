@@ -175,7 +175,7 @@ export class ConversationService {
       .from('messages')
       .insert({
         content,
-        message_type,
+        messageType,
         file_url,
         sent_at,
         edited_at
