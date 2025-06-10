@@ -159,7 +159,7 @@ export class ConversationService {
         message_type,
         file_url,
         sent_at,
-        edited_at,
+        edited_at
       `)
       .eq('conversation_id', conversationId)
       .order('sent_at', { ascending: true })
