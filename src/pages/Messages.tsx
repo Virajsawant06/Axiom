@@ -131,7 +131,9 @@ const Messages = () => {
       const message = await ConversationService.sendMessage(
         selectedConversation,
         user.id,
-        newMessage.trim()
+ newMessage.trim(),
+ 'text' as 'text', // Pass messageType
+ undefined // Pass fileUrl (or replace with actual fileUrl variable if implemented)
       );
       
       setMessages(prev => [...prev, message]);
