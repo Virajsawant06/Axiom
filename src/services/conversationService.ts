@@ -178,7 +178,8 @@ export class ConversationService {
         message_type,
         file_url,
         sent_at,
-        edited_at`)
+        edited_at
+      `)
 
     if (error) throw error
 
