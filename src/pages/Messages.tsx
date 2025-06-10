@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import { useToast } from '../contexts/ToastContext';
 import { ConversationService, Message } from '../services/conversationService';
 import { Search, Send, MoreVertical, Phone, Video, Info } from 'lucide-react';
