@@ -183,7 +183,7 @@ export class ConversationService {
  .single()
 
     if (error) throw error
-
+    
     // Update conversation's updated_at
     await supabase
       .from('conversations')
