@@ -180,6 +180,7 @@ export class ConversationService {
         sent_at,
         edited_at
       `)
+ .single()
 
     if (error) throw error
 
