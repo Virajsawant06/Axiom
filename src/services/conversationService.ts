@@ -170,17 +170,25 @@ export class ConversationService {
   }
 
   // Send a message
-  static async sendMessage(conversationId: string, senderId: string, content: string, messageType: 'text' | 'image' | 'file' = 'text', fileUrl?: string) {
+  static async sendMessage(
+    conversationId: string, 
+    senderId: string, 
+    content: string, 
+    messageType: 'text' | 'image' | 'file' = 'text', 
+    fileUrl?: string
+  ) {
     const { data, error } = await supabase
       .from('messages')
       .insert({
+        conversation_id: conversationId,
+        sender_id: senderId,
         content,
-        messageType,
-        file_url,
-        sent_at,
-        edited_at
-  })
- .single()
+        message_type: messageType,
+        file_url: fileUrl,
+        sent_at: new Date().toISOString()
+      })
+      .select()
+      .single()
 
     if (error) throw error
     
