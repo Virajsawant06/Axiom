@@ -95,28 +95,6 @@ export class ConversationService {
 
   // Create or get direct conversation between two users
   static async getOrCreateDirectConversation(userId: string, otherUserId: string) {
-    // Ensure consistent order of user IDs for querying
-    const [user1, user2] = [userId, otherUserId].sort();
-
-    // Try to find an existing direct conversation with these two participants
-    const { data: existingConversationParticipants, error: searchError } = await supabase
-      .from('conversation_participants')
-      .select('conversation_id')
-      .in('user_id', [user1, user2])
-      .innerJoin('conversations', 'conversations.id', 'conversation_participants.conversation_id')
-      .eq('conversations.type', 'direct')
-      .having('count(conversation_participants.user_id)', 'eq', 2); // Check if both participants are in the conversation
-
-
-    if (searchError) {
-        console.error("Error searching for existing conversation:", searchError);
-        throw searchError; // Re-throw the error to be handled by the caller
-    }
-
-    if (existingConversationParticipants && existingConversationParticipants.length > 0) {
-        // Found an existing direct conversation
-        return existingConversationParticipants[0].conversation_id;
-    }
     // First, try to find existing conversation
     const { data: existingConversations } = await supabase
       .from('conversation_participants')
