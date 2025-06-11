@@ -122,6 +122,14 @@ export class ConversationService {
       }
     }
 
+    const {
+      data: { user },
+      error: userError
+    } = await supabase.auth.getUser();
+    
+    if (userError || !user) throw new Error("User not authenticated");
+    
+
     // Create new conversation
     const { data: newConversation, error: conversationError } = await supabase
       .from('conversations')
