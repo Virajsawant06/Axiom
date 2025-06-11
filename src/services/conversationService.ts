@@ -136,6 +136,8 @@ export class ConversationService {
       return;
     }
 
+    console.log("User ID from auth.getUser():", user.id);
+
     // Create new conversation
     const { data: newConversation, error: conversationError } = await supabase
       .from('conversations')
