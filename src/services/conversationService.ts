@@ -131,15 +131,17 @@ export class ConversationService {
       error: userError
     } = await supabase.auth.getUser();
     
-    if (userError || !user) throw new Error("User not authenticated");
-    
+    if (userError || !user) {
+      console.error('User not found:', userError);
+      return;
+    }
 
     // Create new conversation
     const { data: newConversation, error: conversationError } = await supabase
       .from('conversations')
       .insert({
         type: 'direct',
-        created_by: user?.id
+        created_by: user.id
       })
       .select()
       .single()
