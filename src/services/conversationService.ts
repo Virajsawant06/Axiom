@@ -1,5 +1,7 @@
 import { supabase } from '../lib/supabase'
 import type { Database } from '../lib/supabase'
+const { data: { user }, error } = await supabase.auth.getUser();
+console.log('User:', user);
 
 export interface Conversation {
   id: string
