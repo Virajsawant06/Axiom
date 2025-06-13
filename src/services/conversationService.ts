@@ -143,7 +143,7 @@ export class ConversationService {
       .from('conversations')
       .insert({
         type: 'direct',
-        created_by: user.id
+        
       })
       .select()
       .single()
