@@ -126,17 +126,17 @@ export class ConversationService {
       }
     }
 
-    const {
-      data: { user },
-      error: userError
-    } = await supabase.auth.getUser();
-    
-    if (userError || !user) {
-      console.error('User not found:', userError);
-      return;
-    }
+        // This one line now safely creates the conversation and adds you as a participant
+    const { data: newConversationId, error } = await supabase
+    .rpc('create_new_conversation');
 
-    console.log("User ID from auth.getUser():", user.id);
+    if (error) {
+      console.error('Error creating conversation:', error);
+    } else {
+      // Now you can safely fetch the conversation since you're a participant
+      // Or just use the returned newConversationId to navigate
+      console.log('Conversation created with ID:', newConversationId);
+    }
 
     // Create new conversation
     const { data: newConversation, error: conversationError } = await supabase
