@@ -126,16 +126,19 @@ export class ConversationService {
       }
     }
 
-        // This one line now safely creates the conversation and adds you as a participant
+   // Assuming you have the other user's ID in a variable, e.g., from their profile
+    const otherUserId = '...'; 
+
     const { data: newConversationId, error } = await supabase
-    .rpc('create_new_conversation');
+      .rpc('create_new_conversation', {
+        receiver_id: otherUserId // Pass the receiver's ID here
+      });
 
     if (error) {
-      console.error('Error creating conversation:', error);
+        console.error('Error creating conversation:', error);
     } else {
-      // Now you can safely fetch the conversation since you're a participant
-      // Or just use the returned newConversationId to navigate
-      console.log('Conversation created with ID:', newConversationId);
+        console.log('Successfully created conversation:', newConversationId);
+        // Now you can navigate to the new chat page
     }
 
     // Create new conversation
