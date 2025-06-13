@@ -127,7 +127,7 @@ export class ConversationService {
     }
 
    // Assuming you have the other user's ID in a variable, e.g., from their profile
-    const otherUserId = '...'; 
+     
 
     const { data: newConversationId, error } = await supabase
       .rpc('create_new_conversation', {
