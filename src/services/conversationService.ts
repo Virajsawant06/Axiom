@@ -131,29 +131,32 @@ export class ConversationService {
 
 
 
-    // Create new conversation
-    const { data: newConversationData, error: conversationError } = await supabase
+ // Create conversation
+    const { data: newConversation, error: conversationError } = await supabase
     .from('conversations')
     .insert({
       type: 'direct',
-    });
-    console.log(newConversationData, conversationError);
-    if (conversationError) throw conversationError;
+      created_by: userId
+    })
+    .select('id')
+    .single();
     
+    console.log(newConversation, conversationError);
 
-    const newConversationId = newConversationData[0].id;
+    if (conversationError) throw conversationError;
 
-    // Add participants
+    // Insert participants
     const { error: participantsError } = await supabase
-      .from('conversation_participants')
-      .insert([
-        { conversation_id: newConversationId, user_id: userId },
-        { conversation_id: newConversationId, user_id: otherUserId }
-      ]);
+    .from('conversation_participants')
+    .insert([
+      { conversation_id: newConversation.id, user_id: userId },
+      { conversation_id: newConversation.id, user_id: otherUserId }
+    ]);
+    console.log(participantsError);
 
     if (participantsError) throw participantsError;
-
-    return newConversationId;
+    
+    return newConversation.id;
   }
 
   // Get messages for a conversation
