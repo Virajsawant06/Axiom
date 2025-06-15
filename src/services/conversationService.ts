@@ -137,8 +137,9 @@ export class ConversationService {
     .insert({
       type: 'direct',
     });
-
+    console.log(newConversationData, conversationError);
     if (conversationError) throw conversationError;
+    
 
     const newConversationId = newConversationData[0].id;
 
