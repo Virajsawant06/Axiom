@@ -129,37 +129,30 @@ export class ConversationService {
       // Make sure you have the other user's ID
     // The ID of the user you are messaging
 
-    // REPLACE WITH THIS NEW CODE
-    const { error } = await supabase
-      .rpc('create_new_conversation', {
-        receiver_id: otherUserId 
-      });
 
-    if (error) console.error('Error creating conversation:', error);
 
     // Create new conversation
-    const { data: newConversation, error: conversationError } = await supabase
-      .from('conversations')
-      .insert({
-        type: 'direct',
-        
-      })
-      .select()
-      .single()
+    const { data: newConversationData, error: conversationError } = await supabase
+    .from('conversations')
+    .insert({
+      type: 'direct',
+    });
 
-    if (conversationError) throw conversationError
+    if (conversationError) throw conversationError;
+
+    const newConversationId = newConversationData[0].id;
 
     // Add participants
     const { error: participantsError } = await supabase
       .from('conversation_participants')
       .insert([
-        { conversation_id: newConversation.id, user_id: userId },
-        { conversation_id: newConversation.id, user_id: otherUserId }
-      ])
+        { conversation_id: newConversationId, user_id: userId },
+        { conversation_id: newConversationId, user_id: otherUserId }
+      ]);
 
-    if (participantsError) throw participantsError
+    if (participantsError) throw participantsError;
 
-    return newConversation.id
+    return newConversationId;
   }
 
   // Get messages for a conversation
