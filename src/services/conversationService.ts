@@ -127,7 +127,7 @@ export class ConversationService {
     }
 
       // Make sure you have the other user's ID
-    const otherUserId = '...'; // The ID of the user you are messaging
+    // The ID of the user you are messaging
 
     // REPLACE WITH THIS NEW CODE
     const { error } = await supabase
