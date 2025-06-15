@@ -126,20 +126,16 @@ export class ConversationService {
       }
     }
 
-   // Assuming you have the other user's ID in a variable, e.g., from their profile
-     
+      // Make sure you have the other user's ID
+    const otherUserId = '...'; // The ID of the user you are messaging
 
-    const { data: newConversationId, error } = await supabase
+    // REPLACE WITH THIS NEW CODE
+    const { error } = await supabase
       .rpc('create_new_conversation', {
-        receiver_id: otherUserId // Pass the receiver's ID here
+        receiver_id: otherUserId 
       });
 
-    if (error) {
-        console.error('Error creating conversation:', error);
-    } else {
-        console.log('Successfully created conversation:', newConversationId);
-        // Now you can navigate to the new chat page
-    }
+    if (error) console.error('Error creating conversation:', error);
 
     // Create new conversation
     const { data: newConversation, error: conversationError } = await supabase
