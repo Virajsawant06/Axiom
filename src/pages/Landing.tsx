@@ -4,6 +4,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { Code, Users, Trophy, ArrowRight, Github, Linkedin, Moon, Sun, Sparkles, Zap, Star } from 'lucide-react';
 import { useEffect } from 'react';
 
+
 const Landing = () => {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -34,7 +35,11 @@ const Landing = () => {
       <header className="py-6 px-6 md:px-10 flex justify-between items-center glass dark:glass-dark border-b border-white/20 dark:border-navy-800/50 backdrop-blur-xl">
         <div className="flex items-center gap-3">
           <div className="bg-gradient-to-r from-electric-blue-500 to-electric-blue-600 text-white h-12 w-12 rounded-2xl flex items-center justify-center text-xl font-bold shadow-lg shadow-electric-blue-500/25">
-            <Sparkles size={24} />
+            <img
+              src='/logo.png'
+              alt="Axiom Logo"
+              className="h-full w-full object-contain p-1" // Adjust styling and padding as needed
+            />
           </div>
           <div>
             <span className="text-2xl font-bold gradient-text">Axiom</span>

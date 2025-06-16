@@ -44,11 +44,13 @@ const Sidebar = ({ isOpen, toggleSidebar }: SidebarProps) => {
       {/* Header */}
       <div className="p-6 flex items-center justify-between border-b border-white/10 dark:border-navy-800/50">
         <div className="flex items-center">
-          <div className="bg-gradient-to-r from-electric-blue-500 to-electric-blue-600 text-white h-12 w-12 rounded-2xl flex items-center justify-center text-xl font-bold shadow-lg shadow-electric-blue-500/25">
-            <Sparkles size={24} />
-          </div>
+          <img
+            src="/logo.png" // Reference to your new logo
+            alt="Axiom Logo"
+            className={`h-12 w-12 object-contain ${isOpen ? 'mr-4' : ''}`} // Adjust styling and margin based on sidebar state
+          />
           {isOpen && (
-            <div className="ml-4">
+            <div>
               <span className="text-xl font-bold gradient-text">Axiom</span>
               <p className="text-xs text-navy-500 dark:text-navy-400 font-medium">Social Dev Platform</p>
             </div>

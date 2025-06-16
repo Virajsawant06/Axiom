@@ -65,7 +65,12 @@ const Login = () => {
           <div className="text-center">
             <div className="flex justify-center mb-6">
               <div className="bg-gradient-to-r from-electric-blue-500 to-electric-blue-600 text-white h-16 w-16 rounded-3xl flex items-center justify-center text-2xl font-bold shadow-lg shadow-electric-blue-500/25">
-                <Sparkles size={28} />
+                {/* Axiom Logo */}
+                <img
+ src="/logo.png" // Reference to your new logo
+ alt="Axiom Logo"
+ className="h-16 w-16 object-contain" // Adjust styling as needed
+                />
               </div>
             </div>
             <h2 className="text-3xl font-bold text-navy-900 dark:text-white">

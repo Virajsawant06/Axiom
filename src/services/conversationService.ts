@@ -166,7 +166,11 @@ export class ConversationService {
       .select(`
         id,
         conversation_id,
-        sender_id,
+        users:sender_id (
+        id,
+        name,
+        avatar_url
+        ),
         content,
         message_type,
         file_url,
