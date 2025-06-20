@@ -23,7 +23,7 @@ const Landing = () => {
         href="https://bolt.new" 
         target="_blank" 
         rel="noopener noreferrer" 
-        className="fixed top-6 right-6 z-50 transition-transform hover:scale-110 hover-glow"
+        className="fixed bottom-6 right-6 z-50 transition-transform hover:scale-110 hover-glow"
       >
         <img 
           src={theme === 'dark' ? '/white_circle_360x360.png' : '/black_circle_360x360.png'} 
