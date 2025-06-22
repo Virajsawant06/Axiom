@@ -96,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from('users')
         .select('id')
         .eq('email', 'demo@axiom.dev')
-        .single();
+        .maybeSingle();
 
       if (!existingUser) {
         const { data: authData, error: authError } = await supabase.auth.signUp({
