@@ -61,24 +61,64 @@ const Messages = () => {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages',  filter: `conversation_id=eq.${selectedConversation}` },
-        (payload) => {
+        async (payload) => {
           console.log('New message received:', payload.new);
-          // Add the new message to the state
-          setMessages((prevMessages) => [...prevMessages, payload.new as Message]);
+          
+          // Fetch the complete message with sender info
+          const { data: messageWithSender } = await supabase
+            .from('messages')
+            .select(`
+              id,
+              conversation_id,
+              sender_id,
+              content,
+              message_type,
+              file_url,
+              sent_at,
+              edited_at,
+              users!sender_id(
+                id,
+                name,
+                avatar_url
+              )
+            `)
+            .eq('id', payload.new.id)
+            .single();
 
-          // Update the last_message in the conversations state for the sidebar
-          setConversations(prevConversations => {
-            return prevConversations.map(conversation => {
-              if (conversation.id === payload.new.conversation_id) {
-                return {
-                  ...conversation,
-                  last_message: payload.new as Message, // Update last_message with the new message
-                  updated_at: payload.new.sent_at // Update updated_at as well
-                };
-              }
-              return conversation;
+          if (messageWithSender) {
+            const transformedMessage = {
+              id: messageWithSender.id,
+              conversation_id: messageWithSender.conversation_id,
+              sender_id: messageWithSender.sender_id,
+              content: messageWithSender.content,
+              message_type: messageWithSender.message_type,
+              file_url: messageWithSender.file_url,
+              sent_at: messageWithSender.sent_at,
+              edited_at: messageWithSender.edited_at,
+              sender: messageWithSender.users ? {
+                id: messageWithSender.users.id,
+                name: messageWithSender.users.name,
+                avatar_url: messageWithSender.users.avatar_url
+              } : undefined
+            };
+
+            // Add the new message to the state
+            setMessages((prevMessages) => [...prevMessages, transformedMessage]);
+
+            // Update the last_message in the conversations state for the sidebar
+            setConversations(prevConversations => {
+              return prevConversations.map(conversation => {
+                if (conversation.id === payload.new.conversation_id) {
+                  return {
+                    ...conversation,
+                    last_message: transformedMessage,
+                    updated_at: payload.new.sent_at
+                  };
+                }
+                return conversation;
+              });
             });
-          });
+          }
         }
       )
       .subscribe();
@@ -87,7 +127,7 @@ const Messages = () => {
     return () => {
       supabase.removeChannel(messageSubscription);
     };
-  }, [selectedConversation]); // Re-run effect when selectedConversation changes
+  }, [selectedConversation]);
 
   const loadConversations = async () => {
     if (!user) return;
@@ -131,9 +171,9 @@ const Messages = () => {
       const message = await ConversationService.sendMessage(
         selectedConversation,
         user.id,
- newMessage.trim(),
- 'text' as 'text', // Pass messageType
- undefined // Pass fileUrl (or replace with actual fileUrl variable if implemented)
+        newMessage.trim(),
+        'text' as 'text',
+        undefined
       );
       
       setMessages(prev => [...prev, message]);
@@ -336,7 +376,7 @@ const Messages = () => {
                       <div className={`max-w-xs lg:max-w-md ${isOwnMessage ? 'order-1' : ''}`}>
                         {showAvatar && !isOwnMessage && (
                           <p className="text-xs text-navy-500 dark:text-navy-400 mb-1 ml-3">
-                            {message.sender?.name}
+                            {message.sender?.name || 'Unknown User'}
                           </p>
                         )}
                         

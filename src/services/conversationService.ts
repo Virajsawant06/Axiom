@@ -70,7 +70,7 @@ export class ConversationService {
           `)
           .eq('conversation_id', conversation.id)
 
-        // Get last message
+        // Get last message with sender info
         const { data: lastMessage } = await supabase
           .from('messages')
           .select(`
@@ -78,6 +78,7 @@ export class ConversationService {
             content,
             sent_at,
             sender_id,
+            users!sender_id(id, name, avatar_url)
           `)
           .eq('conversation_id', conversation.id)
           .order('sent_at', { ascending: false })
@@ -126,20 +127,15 @@ export class ConversationService {
       }
     }
 
-      // Make sure you have the other user's ID
-    // The ID of the user you are messaging
-
-
-
- // Create conversation
+    // Create conversation
     const { data: newConversation, error: conversationError } = await supabase
-    .from('conversations')
-    .insert({
-      type: 'direct',
-      created_by: userId
-    })
-    .select('id')
-    .single();
+      .from('conversations')
+      .insert({
+        type: 'direct',
+        created_by: userId
+      })
+      .select('id')
+      .single();
     
     console.log(newConversation, conversationError);
 
@@ -147,11 +143,11 @@ export class ConversationService {
 
     // Insert participants
     const { error: participantsError } = await supabase
-    .from('conversation_participants')
-    .insert([
-      { conversation_id: newConversation.id, user_id: userId },
-      { conversation_id: newConversation.id, user_id: otherUserId }
-    ]);
+      .from('conversation_participants')
+      .insert([
+        { conversation_id: newConversation.id, user_id: userId },
+        { conversation_id: newConversation.id, user_id: otherUserId }
+      ]);
     console.log(participantsError);
 
     if (participantsError) throw participantsError;
@@ -166,23 +162,40 @@ export class ConversationService {
       .select(`
         id,
         conversation_id,
-        users:sender_id (
-        id,
-        name,
-        avatar_url
-        ),
+        sender_id,
         content,
         message_type,
         file_url,
         sent_at,
-        edited_at
+        edited_at,
+        users!sender_id(
+          id,
+          name,
+          avatar_url
+        )
       `)
       .eq('conversation_id', conversationId)
       .order('sent_at', { ascending: true })
       .limit(limit)
 
     if (error) throw error
-    return data || []
+    
+    // Transform the data to match our Message interface
+    return (data || []).map(message => ({
+      id: message.id,
+      conversation_id: message.conversation_id,
+      sender_id: message.sender_id,
+      content: message.content,
+      message_type: message.message_type,
+      file_url: message.file_url,
+      sent_at: message.sent_at,
+      edited_at: message.edited_at,
+      sender: message.users ? {
+        id: message.users.id,
+        name: message.users.name,
+        avatar_url: message.users.avatar_url
+      } : undefined
+    }))
   }
 
   // Send a message
@@ -203,7 +216,21 @@ export class ConversationService {
         file_url: fileUrl,
         sent_at: new Date().toISOString()
       })
-      .select()
+      .select(`
+        id,
+        conversation_id,
+        sender_id,
+        content,
+        message_type,
+        file_url,
+        sent_at,
+        edited_at,
+        users!sender_id(
+          id,
+          name,
+          avatar_url
+        )
+      `)
       .single()
 
     if (error) throw error
@@ -214,7 +241,22 @@ export class ConversationService {
       .update({ updated_at: new Date().toISOString() })
       .eq('id', conversationId)
 
-    return data
+    // Transform the data to match our Message interface
+    return {
+      id: data.id,
+      conversation_id: data.conversation_id,
+      sender_id: data.sender_id,
+      content: data.content,
+      message_type: data.message_type,
+      file_url: data.file_url,
+      sent_at: data.sent_at,
+      edited_at: data.edited_at,
+      sender: data.users ? {
+        id: data.users.id,
+        name: data.users.name,
+        avatar_url: data.users.avatar_url
+      } : undefined
+    }
   }
 
   // Get conversation details
