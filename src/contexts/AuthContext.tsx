@@ -92,12 +92,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const createDemoUser = async () => {
     try {
+      // First, try to sign in the demo user to check if they already exist and are active
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: 'demo@axiom.dev',
+        password: 'demo123456'
+      });
+
+      // If sign-in is successful, the user exists and is active - no need to create
+      if (signInData?.user && !signInError) {
+        // Sign out immediately since this is just a check
+        await supabase.auth.signOut();
+        return;
+      }
+
+      // If sign-in failed, check if user exists in the public.users table
       const { data: existingUser } = await supabase
         .from('users')
         .select('id')
         .eq('email', 'demo@axiom.dev')
         .maybeSingle();
 
+      // Only attempt signup if user doesn't exist in both auth and public.users
       if (!existingUser) {
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: 'demo@axiom.dev',
@@ -118,6 +133,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (authError && !authError.message.includes('already registered')) {
           console.error('Error creating demo user:', authError);
+        }
+
+        // Sign out after creating the demo user
+        if (authData?.user) {
+          await supabase.auth.signOut();
         }
       }
     } catch (error) {
