@@ -1,27 +1,54 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Filter, Calendar, Users, Trophy } from 'lucide-react';
-import { mockHackathons } from '../data/mockData';
+import { HackathonService } from '../services/hackathonService';
+import { useToast } from '../contexts/ToastContext';
 
 const Hackathons = () => {
+  const { showError } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [hackathons, setHackathons] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [allTags, setAllTags] = useState<string[]>([]);
   
-  // Get all unique tags from hackathons
-  const allTags = Array.from(
-    new Set(mockHackathons.flatMap(hackathon => hackathon.tags))
-  );
+  useEffect(() => {
+    loadHackathons();
+  }, []);
+
+  const loadHackathons = async () => {
+    try {
+      setIsLoading(true);
+      const data = await HackathonService.getHackathons();
+      setHackathons(data);
+      
+      // Extract all unique tags
+      const tags = new Set<string>();
+      data.forEach(hackathon => {
+        hackathon.hackathon_tag_relations?.forEach((relation: any) => {
+          tags.add(relation.hackathon_tags.name);
+        });
+      });
+      setAllTags(Array.from(tags));
+    } catch (error) {
+      console.error('Error loading hackathons:', error);
+      showError('Failed to load hackathons', 'Please try refreshing the page.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   // Filter hackathons based on search term and selected tags
-  const filteredHackathons = mockHackathons.filter(hackathon => {
+  const filteredHackathons = hackathons.filter(hackathon => {
     const matchesSearch = 
       searchTerm === '' || 
       hackathon.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       hackathon.description.toLowerCase().includes(searchTerm.toLowerCase());
     
+    const hackathonTags = hackathon.hackathon_tag_relations?.map((rel: any) => rel.hackathon_tags.name) || [];
     const matchesTags = 
       selectedTags.length === 0 || 
-      selectedTags.some(tag => hackathon.tags.includes(tag));
+      selectedTags.some(tag => hackathonTags.includes(tag));
     
     return matchesSearch && matchesTags;
   });
@@ -33,6 +60,25 @@ const Hackathons = () => {
         : [...prev, tag]
     );
   };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+  
+  if (isLoading) {
+    return (
+      <div className="max-w-7xl mx-auto">
+        <div className="text-center py-16">
+          <div className="spinner mx-auto mb-4"></div>
+          <p className="text-navy-600 dark:text-navy-300">Loading hackathons...</p>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="max-w-7xl mx-auto">
@@ -69,90 +115,112 @@ const Hackathons = () => {
       </div>
       
       {/* Tags */}
-      <div className="mb-8">
-        <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Popular Tags</h2>
-        <div className="flex flex-wrap gap-2">
-          {allTags.map((tag) => (
-            <button
-              key={tag}
-              onClick={() => toggleTag(tag)}
-              className={`px-3 py-1 rounded-full text-sm ${
-                selectedTags.includes(tag)
-                  ? 'bg-axiom-500 text-white'
-                  : 'bg-gray-100 dark:bg-axiom-800 text-gray-800 dark:text-gray-300'
-              }`}
-            >
-              {tag}
-            </button>
-          ))}
+      {allTags.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Popular Tags</h2>
+          <div className="flex flex-wrap gap-2">
+            {allTags.map((tag) => (
+              <button
+                key={tag}
+                onClick={() => toggleTag(tag)}
+                className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                  selectedTags.includes(tag)
+                    ? 'bg-electric-blue-500 text-white'
+                    : 'bg-gray-100 dark:bg-navy-800 text-gray-800 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-navy-700'
+                }`}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
       
       {/* Hackathons Grid */}
       {filteredHackathons.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredHackathons.map((hackathon) => (
-            <Link key={hackathon.id} to={`/hackathons/${hackathon.id}`} className="card overflow-hidden group">
+            <Link key={hackathon.id} to={`/hackathons/${hackathon.id}`} className="card overflow-hidden group hover-lift">
               <div className="h-48 overflow-hidden relative">
                 <img 
-                  src={hackathon.image} 
+                  src={hackathon.image_url} 
                   alt={hackathon.name} 
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
-                <div className="absolute top-3 right-3 bg-axiom-100 dark:bg-axiom-800 text-axiom-800 dark:text-axiom-300 text-xs px-2 py-1 rounded-full">
+                <div className="absolute top-3 right-3 bg-white/90 dark:bg-navy-800/90 text-navy-800 dark:text-navy-300 text-xs px-2 py-1 rounded-full backdrop-blur-sm">
                   {hackathon.location}
                 </div>
                 {hackathon.status === 'upcoming' && (
-                  <div className="absolute bottom-3 left-3 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 text-xs px-2 py-1 rounded-full">
+                  <div className="absolute bottom-3 left-3 bg-green-500/90 text-white text-xs px-2 py-1 rounded-full backdrop-blur-sm">
                     Upcoming
                   </div>
                 )}
               </div>
               <div className="p-4">
-                <h3 className="font-bold text-gray-900 dark:text-white group-hover:text-axiom-600 dark:group-hover:text-axiom-400 transition-colors duration-200">
+                <h3 className="font-bold text-gray-900 dark:text-white group-hover:text-electric-blue-600 dark:group-hover:text-electric-blue-400 transition-colors duration-200">
                   {hackathon.name}
                 </h3>
                 <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mt-1">
                   <Calendar size={14} className="mr-1" />
-                  <span>{hackathon.startDate} to {hackathon.endDate}</span>
+                  <span>{formatDate(hackathon.start_date)} to {formatDate(hackathon.end_date)}</span>
                 </div>
                 <p className="text-gray-600 dark:text-gray-300 text-sm mt-2 line-clamp-2">
                   {hackathon.description}
                 </p>
+                
+                {/* Tags */}
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {hackathon.tags.slice(0, 3).map((tag, index) => (
+                  {hackathon.hackathon_tag_relations?.slice(0, 3).map((relation: any, index: number) => (
                     <span 
                       key={index} 
-                      className="text-xs bg-gray-100 dark:bg-axiom-800 text-gray-800 dark:text-gray-300 px-2 py-1 rounded-full"
+                      className="text-xs bg-gray-100 dark:bg-navy-800 text-gray-800 dark:text-gray-300 px-2 py-1 rounded-full"
                     >
-                      {tag}
+                      {relation.hackathon_tags.name}
                     </span>
                   ))}
-                  {hackathon.tags.length > 3 && (
-                    <span className="text-xs bg-gray-100 dark:bg-axiom-800 text-gray-800 dark:text-gray-300 px-2 py-1 rounded-full">
-                      +{hackathon.tags.length - 3}
+                  {hackathon.hackathon_tag_relations?.length > 3 && (
+                    <span className="text-xs bg-gray-100 dark:bg-navy-800 text-gray-800 dark:text-gray-300 px-2 py-1 rounded-full">
+                      +{hackathon.hackathon_tag_relations.length - 3}
                     </span>
                   )}
                 </div>
+                
                 <div className="mt-4 flex items-center justify-between text-sm">
                   <div className="flex items-center text-gray-500 dark:text-gray-400">
                     <Trophy size={14} className="mr-1" />
-                    <span>
-                      {hackathon.prizes.length} {hackathon.prizes.length === 1 ? 'prize' : 'prizes'}
-                    </span>
+                    <span>Prizes Available</span>
                   </div>
                   <div className="flex items-center text-gray-500 dark:text-gray-400">
                     <Users size={14} className="mr-1" />
-                    <span>{hackathon.teams} teams</span>
+                    <span>Max {hackathon.max_participants}</span>
                   </div>
                 </div>
+                
+                {/* Organizer */}
+                {hackathon.organizer && (
+                  <div className="mt-3 pt-3 border-t border-gray-200 dark:border-navy-800">
+                    <div className="flex items-center gap-2">
+                      <img
+                        src={hackathon.organizer.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(hackathon.organizer.name)}&background=6366f1&color=fff`}
+                        alt={hackathon.organizer.name}
+                        className="w-6 h-6 rounded-full"
+                      />
+                      <span className="text-sm text-gray-600 dark:text-gray-300">
+                        by {hackathon.organizer.name}
+                      </span>
+                      {hackathon.organizer.verified && (
+                        <span className="text-electric-blue-500">✓</span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </Link>
           ))}
         </div>
       ) : (
         <div className="text-center py-12">
-          <div className="bg-gray-100 dark:bg-axiom-800 h-16 w-16 flex items-center justify-center rounded-full mx-auto mb-4">
+          <div className="bg-gray-100 dark:bg-navy-800 h-16 w-16 flex items-center justify-center rounded-full mx-auto mb-4">
             <Trophy size={24} className="text-gray-500 dark:text-gray-400" />
           </div>
           <h3 className="text-xl font-medium text-gray-900 dark:text-white mb-2">No hackathons found</h3>

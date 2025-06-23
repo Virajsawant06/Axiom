@@ -11,6 +11,7 @@ import Hackathons from './pages/Hackathons';
 import HackathonDetails from './pages/HackathonDetails';
 import Teams from './pages/Teams';
 import Messages from './pages/Messages';
+import OrganizerPanel from './pages/OrganizerPanel';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import NotFound from './pages/NotFound';
@@ -92,6 +93,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <Messages />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/organizer" 
+                  element={
+                    <ProtectedRoute requiredRole={['organizer']}>
+                      <OrganizerPanel />
                     </ProtectedRoute>
                   } 
                 />

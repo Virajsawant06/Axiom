@@ -72,28 +72,91 @@ export class HackathonService {
   }
 
   // Create new hackathon
-  static async createHackathon(hackathon: HackathonInsert) {
-    const { data, error } = await supabase
+  static async createHackathon(hackathon: HackathonInsert & { tags?: string[] }) {
+    const { tags, ...hackathonData } = hackathon;
+    
+    const { data: newHackathon, error } = await supabase
       .from('hackathons')
-      .insert(hackathon)
+      .insert(hackathonData)
       .select()
       .single()
 
     if (error) throw error
-    return data
+
+    // Add tags if provided
+    if (tags && tags.length > 0) {
+      await this.addTagsToHackathon(newHackathon.id, tags);
+    }
+
+    return newHackathon
   }
 
   // Update hackathon
-  static async updateHackathon(id: string, updates: HackathonUpdate) {
+  static async updateHackathon(id: string, updates: HackathonUpdate & { tags?: string[] }) {
+    const { tags, ...hackathonUpdates } = updates;
+    
     const { data, error } = await supabase
       .from('hackathons')
-      .update(updates)
+      .update(hackathonUpdates)
       .eq('id', id)
       .select()
       .single()
 
     if (error) throw error
+
+    // Update tags if provided
+    if (tags !== undefined) {
+      // Remove existing tags
+      await supabase
+        .from('hackathon_tag_relations')
+        .delete()
+        .eq('hackathon_id', id);
+
+      // Add new tags
+      if (tags.length > 0) {
+        await this.addTagsToHackathon(id, tags);
+      }
+    }
+
     return data
+  }
+
+  // Add tags to hackathon
+  static async addTagsToHackathon(hackathonId: string, tags: string[]) {
+    for (const tagName of tags) {
+      // Get or create tag
+      let { data: tag, error: tagError } = await supabase
+        .from('hackathon_tags')
+        .select('id')
+        .eq('name', tagName)
+        .single();
+
+      if (tagError && tagError.code === 'PGRST116') {
+        // Tag doesn't exist, create it
+        const { data: newTag, error: createError } = await supabase
+          .from('hackathon_tags')
+          .insert({ name: tagName })
+          .select('id')
+          .single();
+
+        if (createError) throw createError;
+        tag = newTag;
+      } else if (tagError) {
+        throw tagError;
+      }
+
+      // Create relation
+      const { error: relationError } = await supabase
+        .from('hackathon_tag_relations')
+        .insert({
+          hackathon_id: hackathonId,
+          tag_id: tag.id
+        });
+
+      if (relationError && !relationError.message.includes('duplicate key')) {
+        throw relationError;
+      }
+    }
   }
 
   // Register for hackathon
