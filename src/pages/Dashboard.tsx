@@ -1,17 +1,37 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Link } from 'react-router-dom';
 import { Trophy, Users, Calendar, ArrowRight, User, GitBranch, Star } from 'lucide-react';
-import { mockHackathons, mockTeams } from '../data/mockData';
+import { HackathonService } from '../services/hackathonService';
+import { mockTeams } from '../data/mockData';
 
 const Dashboard = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
+  const [hackathons, setHackathons] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
-  // Filter upcoming hackathons
-  const upcomingHackathons = mockHackathons.filter(
-    hackathon => hackathon.status === 'upcoming'
-  ).slice(0, 3);
+  useEffect(() => {
+    loadHackathons();
+  }, []);
+
+  const loadHackathons = async () => {
+    try {
+      setIsLoading(true);
+      const data = await HackathonService.getHackathons();
+      
+      // Filter for upcoming and active hackathons
+      const relevantHackathons = data.filter(
+        hackathon => hackathon.status === 'upcoming' || hackathon.status === 'active'
+      ).slice(0, 3);
+      
+      setHackathons(relevantHackathons);
+    } catch (error) {
+      console.error('Error loading hackathons:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   // Mock user stats
   const userStats = {
@@ -43,6 +63,14 @@ const Dashboard = () => {
       timestamp: '1 week ago',
     },
   ];
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
   
   return (
     <div className="max-w-7xl mx-auto">
@@ -135,65 +163,90 @@ const Dashboard = () => {
           {/* Upcoming Hackathons */}
           <div className="lg:col-span-2">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Upcoming Hackathons</h2>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                {hackathons.length > 0 ? 'Upcoming Hackathons' : 'No Upcoming Hackathons'}
+              </h2>
               <Link to="/hackathons" className="text-sm text-axiom-600 dark:text-axiom-400 hover:underline flex items-center">
                 View all <ArrowRight size={16} className="ml-1" />
               </Link>
             </div>
             
-            <div className="space-y-4">
-              {upcomingHackathons.map((hackathon) => (
-                <div key={hackathon.id} className="card overflow-hidden">
-                  <div className="h-40 overflow-hidden">
-                    <img 
-                      src={hackathon.image} 
-                      alt={hackathon.name} 
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="p-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-bold text-gray-900 dark:text-white">{hackathon.name}</h3>
-                        <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mt-1">
-                          <Calendar size={14} className="mr-1" />
-                          <span>{hackathon.startDate} to {hackathon.endDate}</span>
+            {isLoading ? (
+              <div className="text-center py-8">
+                <div className="spinner mx-auto mb-3"></div>
+                <p className="text-gray-500 dark:text-gray-400">Loading hackathons...</p>
+              </div>
+            ) : hackathons.length > 0 ? (
+              <div className="space-y-4">
+                {hackathons.map((hackathon) => (
+                  <div key={hackathon.id} className="card overflow-hidden">
+                    <div className="h-40 overflow-hidden">
+                      <img 
+                        src={hackathon.image_url} 
+                        alt={hackathon.name} 
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-bold text-gray-900 dark:text-white">{hackathon.name}</h3>
+                          <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            <Calendar size={14} className="mr-1" />
+                            <span>{formatDate(hackathon.start_date)} to {formatDate(hackathon.end_date)}</span>
+                          </div>
+                        </div>
+                        <div className="bg-axiom-100 dark:bg-axiom-800 text-axiom-800 dark:text-axiom-300 text-xs px-2 py-1 rounded-full">
+                          {hackathon.location}
                         </div>
                       </div>
-                      <div className="bg-axiom-100 dark:bg-axiom-800 text-axiom-800 dark:text-axiom-300 text-xs px-2 py-1 rounded-full">
-                        {hackathon.location}
+                      <p className="text-gray-600 dark:text-gray-300 text-sm mt-2 line-clamp-2">
+                        {hackathon.description}
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {hackathon.hackathon_tag_relations?.slice(0, 4).map((relation: any, index: number) => (
+                          <span 
+                            key={index} 
+                            className="text-xs bg-gray-100 dark:bg-axiom-800 text-gray-800 dark:text-gray-300 px-2 py-1 rounded-full"
+                          >
+                            {relation.hackathon_tags.name}
+                          </span>
+                        ))}
+                        {hackathon.hackathon_tag_relations?.length > 4 && (
+                          <span className="text-xs bg-gray-100 dark:bg-axiom-800 text-gray-800 dark:text-gray-300 px-2 py-1 rounded-full">
+                            +{hackathon.hackathon_tag_relations.length - 4} more
+                          </span>
+                        )}
                       </div>
-                    </div>
-                    <p className="text-gray-600 dark:text-gray-300 text-sm mt-2 line-clamp-2">
-                      {hackathon.description}
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {hackathon.tags.map((tag, index) => (
-                        <span 
-                          key={index} 
-                          className="text-xs bg-gray-100 dark:bg-axiom-800 text-gray-800 dark:text-gray-300 px-2 py-1 rounded-full"
+                      <div className="mt-4 flex justify-between items-center">
+                        <div className="text-sm">
+                          <span className="text-gray-500 dark:text-gray-400">Max {hackathon.max_participants} participants</span>
+                        </div>
+                        <Link 
+                          to={`/hackathons/${hackathon.id}`}
+                          className="btn btn-primary py-1 px-3 text-sm"
                         >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="mt-4 flex justify-between items-center">
-                      <div className="text-sm">
-                        <span className="text-gray-500 dark:text-gray-400">{hackathon.teams} teams</span>
-                        <span className="mx-2">•</span>
-                        <span className="text-gray-500 dark:text-gray-400">{hackathon.participants} participants</span>
+                          Details
+                        </Link>
                       </div>
-                      <Link 
-                        to={`/hackathons/${hackathon.id}`}
-                        className="btn btn-primary py-1 px-3 text-sm"
-                      >
-                        Details
-                      </Link>
                     </div>
                   </div>
+                ))}
+              </div>
+            ) : (
+              <div className="card p-8 text-center">
+                <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
+                  <Trophy size={24} className="text-gray-400 dark:text-gray-500" />
                 </div>
-              ))}
-            </div>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No upcoming hackathons</h3>
+                <p className="text-gray-600 dark:text-gray-300 mb-4">
+                  There are currently no upcoming hackathons. Check back later or create your own!
+                </p>
+                <Link to="/hackathons" className="btn btn-primary">
+                  Browse All Hackathons
+                </Link>
+              </div>
+            )}
           </div>
           
           {/* Activity Feed & Teams */}

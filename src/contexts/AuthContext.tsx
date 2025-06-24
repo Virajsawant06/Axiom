@@ -16,6 +16,7 @@ export type UserRole = 'developer' | 'organizer' | 'company' | 'admin';
 export interface User {
   id: string;
   username: string;
+  hashtag: string;
   email: string;
   avatar: string;
   role: UserRole;
@@ -52,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return {
       id: dbUser.id,
       username: dbUser.username || '',
+      hashtag: dbUser.hashtag || '0000',
       email: dbUser.email,
       avatar: dbUser.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(dbUser.name || 'User')}&background=6366f1&color=fff`,
       role: dbUser.role || 'developer',
@@ -206,6 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             email: data.user.email!,
             name: 'Demo User',
             username: 'demo_user',
+            hashtag: '0001',
             avatar: `https://ui-avatars.com/api/?name=Demo+User&background=6366f1&color=fff`,
             role: 'developer',
             verified: true,
@@ -271,6 +274,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             email: data.user.email!,
             name: userData.name || '',
             username: userData.username || '',
+            hashtag: '0000',
             avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.name || 'User')}&background=6366f1&color=fff`,
             role: userData.role || 'developer',
             verified: false,

@@ -5,7 +5,7 @@ import { useToast } from '../contexts/ToastContext';
 import { UserService } from '../services/userService';
 import { FriendService } from '../services/friendService';
 import { ConversationService } from '../services/conversationService';
-import { MapPin, Trophy, Users, Star, Github as GitHub, Linkedin, Globe, Code, MessageSquare, UserPlus, Calendar, Cog, Clock, UserCheck, Check } from 'lucide-react';
+import { MapPin, Trophy, Users, Star, Github as GitHub, Linkedin, Globe, Code, MessageSquare, UserPlus, Calendar, Cog, Clock, UserCheck, Check, Copy } from 'lucide-react';
 import { mockHackathons, mockTeams } from '../data/mockData';
 
 const Profile = () => {
@@ -41,6 +41,7 @@ const Profile = () => {
         setProfileUser({
           id: userData.id,
           username: userData.username,
+          hashtag: userData.hashtag,
           email: userData.email,
           avatar: userData.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.name)}&background=6366f1&color=fff`,
           role: userData.role,
@@ -137,6 +138,19 @@ const Profile = () => {
       showError('Failed to start chat', 'Something went wrong. Please try again.');
     } finally {
       setLoadingMessage(false);
+    }
+  };
+
+  const copyUserIdToClipboard = async () => {
+    if (!profileUser) return;
+    
+    const userId = `${profileUser.username}#${profileUser.hashtag}`;
+    try {
+      await navigator.clipboard.writeText(userId);
+      showSuccess('User ID copied!', `${userId} has been copied to your clipboard.`);
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
+      showError('Failed to copy', 'Could not copy user ID to clipboard.');
     }
   };
 
@@ -244,7 +258,7 @@ const Profile = () => {
         
         <div className="absolute bottom-4 right-6 flex gap-2">
           {isOwnProfile ? (
-            <Link to="/settings\" className="btn bg-white/10 text-white backdrop-blur-sm hover:bg-white/20">
+            <Link to="/settings" className="btn bg-white/10 text-white backdrop-blur-sm hover:bg-white/20">
               <Cog size={18} className="mr-2" />
               Edit Profile
             </Link>
@@ -292,7 +306,20 @@ const Profile = () => {
                 </span>
               )}
             </h1>
-            <p className="text-gray-600 dark:text-gray-300">@{profileUser.username}</p>
+            
+            {/* User ID with Copy Button */}
+            <div className="flex items-center gap-2 mt-2">
+              <p className="text-gray-600 dark:text-gray-300">
+                {profileUser.username}#{profileUser.hashtag}
+              </p>
+              <button
+                onClick={copyUserIdToClipboard}
+                className="p-1 rounded-lg text-gray-500 dark:text-gray-400 hover:text-electric-blue-600 dark:hover:text-electric-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                title="Copy User ID"
+              >
+                <Copy size={14} />
+              </button>
+            </div>
             
             {profileUser.location && (
               <div className="flex items-center mt-3 text-gray-600 dark:text-gray-300">

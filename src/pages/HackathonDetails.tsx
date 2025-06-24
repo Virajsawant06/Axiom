@@ -1,17 +1,144 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Calendar, MapPin, Trophy, Users, Clock, ArrowLeft, Share2, Heart, MessageSquare, UserPlus } from 'lucide-react';
-import { mockHackathons, mockUsers } from '../data/mockData';
+import { Calendar, MapPin, Trophy, Users, Clock, ArrowLeft, Share2, Heart, MessageSquare, UserPlus, X, AlertCircle } from 'lucide-react';
+import { HackathonService } from '../services/hackathonService';
+import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import UserCard from '../components/ui/UserCard';
 
 const HackathonDetails = () => {
   const { hackathonId } = useParams<{ hackathonId: string }>();
+  const { user } = useAuth();
+  const { showSuccess, showError } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
+  const [hackathon, setHackathon] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+  const [registrationData, setRegistrationData] = useState({
+    username: '',
+    hashtag: '',
+    teamMembers: ['']
+  });
+  const [isRegistering, setIsRegistering] = useState(false);
   
-  // Find the hackathon with the matching ID
-  const hackathon = mockHackathons.find(h => h.id === hackathonId);
-  
-  // If hackathon is not found, show an error message
+  useEffect(() => {
+    if (hackathonId) {
+      loadHackathon();
+    }
+  }, [hackathonId]);
+
+  const loadHackathon = async () => {
+    if (!hackathonId) return;
+    
+    setIsLoading(true);
+    try {
+      const data = await HackathonService.getHackathonById(hackathonId);
+      setHackathon(data);
+    } catch (error) {
+      console.error('Error loading hackathon:', error);
+      showError('Hackathon not found', 'The hackathon you are looking for does not exist.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRegistration = async () => {
+    if (!user || !hackathon) return;
+    
+    setIsRegistering(true);
+    try {
+      // Validate user exists
+      const userExists = await validateUser(registrationData.username, registrationData.hashtag);
+      if (!userExists) {
+        showError('User not found', `User ${registrationData.username}#${registrationData.hashtag} is not registered on Axiom.`);
+        setIsRegistering(false);
+        return;
+      }
+
+      // Validate team members if any
+      const validTeamMembers = [];
+      for (const member of registrationData.teamMembers) {
+        if (member.trim()) {
+          const [username, hashtag] = member.split('#');
+          if (!username || !hashtag) {
+            showError('Invalid format', `Please use the format username#hashtag for team members.`);
+            setIsRegistering(false);
+            return;
+          }
+          
+          const memberExists = await validateUser(username.trim(), hashtag.trim());
+          if (!memberExists) {
+            showError('Team member not found', `User ${username.trim()}#${hashtag.trim()} is not registered on Axiom.`);
+            setIsRegistering(false);
+            return;
+          }
+          validTeamMembers.push(member.trim());
+        }
+      }
+
+      // Register for hackathon
+      await HackathonService.registerForHackathon(hackathon.id, user.id);
+      
+      showSuccess('Registration successful!', `You have been registered for ${hackathon.name}.`);
+      setShowRegistrationModal(false);
+      setRegistrationData({ username: '', hashtag: '', teamMembers: [''] });
+    } catch (error: any) {
+      console.error('Error registering for hackathon:', error);
+      if (error.message?.includes('duplicate key')) {
+        showError('Already registered', 'You are already registered for this hackathon.');
+      } else {
+        showError('Registration failed', 'Something went wrong. Please try again.');
+      }
+    } finally {
+      setIsRegistering(false);
+    }
+  };
+
+  const validateUser = async (username: string, hashtag: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id')
+        .eq('username', username)
+        .eq('hashtag', hashtag)
+        .single();
+
+      return !error && data;
+    } catch (error) {
+      return false;
+    }
+  };
+
+  const addTeamMember = () => {
+    setRegistrationData(prev => ({
+      ...prev,
+      teamMembers: [...prev.teamMembers, '']
+    }));
+  };
+
+  const removeTeamMember = (index: number) => {
+    setRegistrationData(prev => ({
+      ...prev,
+      teamMembers: prev.teamMembers.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateTeamMember = (index: number, value: string) => {
+    setRegistrationData(prev => ({
+      ...prev,
+      teamMembers: prev.teamMembers.map((member, i) => i === index ? value : member)
+    }));
+  };
+
+  if (isLoading) {
+    return (
+      <div className="max-w-4xl mx-auto text-center py-16">
+        <div className="spinner mx-auto mb-4"></div>
+        <p className="text-navy-600 dark:text-navy-300">Loading hackathon...</p>
+      </div>
+    );
+  }
+
   if (!hackathon) {
     return (
       <div className="max-w-4xl mx-auto text-center py-16">
@@ -31,12 +158,20 @@ const HackathonDetails = () => {
   
   // Format registration deadline
   const today = new Date();
-  const deadline = new Date(hackathon.registrationDeadline);
+  const deadline = new Date(hackathon.registration_deadline);
   const daysLeft = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   
   // Calculate time until hackathon starts
-  const startDate = new Date(hackathon.startDate);
+  const startDate = new Date(hackathon.start_date);
   const daysUntilStart = Math.ceil((startDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
   
   return (
     <div className="max-w-7xl mx-auto">
@@ -52,7 +187,7 @@ const HackathonDetails = () => {
       <div className="relative">
         <div className="h-64 md:h-80 rounded-xl overflow-hidden">
           <img 
-            src={hackathon.image} 
+            src={hackathon.image_url} 
             alt={hackathon.name} 
             className="w-full h-full object-cover"
           />
@@ -75,7 +210,7 @@ const HackathonDetails = () => {
               </h1>
               <div className="flex items-center text-sm text-white/80">
                 <Calendar size={14} className="mr-1" />
-                <span>{hackathon.startDate} to {hackathon.endDate}</span>
+                <span>{formatDate(hackathon.start_date)} to {formatDate(hackathon.end_date)}</span>
               </div>
             </div>
             
@@ -86,7 +221,10 @@ const HackathonDetails = () => {
               <button className="btn bg-white/10 text-white backdrop-blur-sm hover:bg-white/20">
                 <Heart size={18} />
               </button>
-              <button className="btn bg-axiom-500 text-white">
+              <button 
+                onClick={() => setShowRegistrationModal(true)}
+                className="btn bg-axiom-500 text-white"
+              >
                 Register Now
               </button>
             </div>
@@ -104,7 +242,7 @@ const HackathonDetails = () => {
             <div className="ml-3">
               <p className="text-sm text-gray-500 dark:text-gray-400">Registration Ends</p>
               <p className="font-medium text-gray-900 dark:text-white">
-                {hackathon.registrationDeadline}
+                {formatDate(hackathon.registration_deadline)}
                 {daysLeft > 0 && <span className="text-xs text-green-600 dark:text-green-400 ml-1">({daysLeft} days left)</span>}
               </p>
             </div>
@@ -134,9 +272,9 @@ const HackathonDetails = () => {
               <Trophy size={18} className="text-axiom-600 dark:text-axiom-400" />
             </div>
             <div className="ml-3">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Prizes</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Prize Pool</p>
               <p className="font-medium text-gray-900 dark:text-white">
-                {hackathon.prizes.length} Categories
+                {hackathon.prize_pool || 'TBA'}
               </p>
             </div>
           </div>
@@ -148,9 +286,9 @@ const HackathonDetails = () => {
               <Users size={18} className="text-axiom-600 dark:text-axiom-400" />
             </div>
             <div className="ml-3">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Participants</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Max Participants</p>
               <p className="font-medium text-gray-900 dark:text-white">
-                {hackathon.participants} / {hackathon.teams} teams
+                {hackathon.max_participants}
               </p>
             </div>
           </div>
@@ -161,7 +299,7 @@ const HackathonDetails = () => {
       <div className="mt-8">
         <div className="border-b border-gray-200 dark:border-axiom-800">
           <nav className="flex space-x-8">
-            {['overview', 'prizes', 'teams', 'discussions'].map((tab) => (
+            {['overview', 'teams', 'discussions'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -193,12 +331,6 @@ const HackathonDetails = () => {
                   <p className="text-gray-700 dark:text-gray-300">
                     {hackathon.description}
                   </p>
-                  <p className="text-gray-700 dark:text-gray-300 mt-4">
-                    Join us for an exciting opportunity to showcase your skills, work on innovative projects, and compete for amazing prizes. This hackathon brings together developers, designers, and problem solvers from around the world to create solutions that address real-world challenges.
-                  </p>
-                  <p className="text-gray-700 dark:text-gray-300 mt-4">
-                    Whether you're an experienced developer or just starting out, this hackathon offers a supportive environment to learn, collaborate, and build something meaningful. Form a team or join one through Axiom's team matching feature!
-                  </p>
                 </div>
               </div>
               
@@ -212,7 +344,7 @@ const HackathonDetails = () => {
                     <div className="h-6 w-6 rounded-full bg-axiom-100 dark:bg-axiom-800 flex items-center justify-center text-axiom-600 dark:text-axiom-400 text-sm font-medium">
                       1
                     </div>
-                    <p className="text-gray-700 dark:text-gray-300">Teams must consist of 1-4 members</p>
+                    <p className="text-gray-700 dark:text-gray-300">Teams must consist of 1-{hackathon.max_team_size} members</p>
                   </div>
                   <div className="flex gap-2">
                     <div className="h-6 w-6 rounded-full bg-axiom-100 dark:bg-axiom-800 flex items-center justify-center text-axiom-600 dark:text-axiom-400 text-sm font-medium">
@@ -240,75 +372,34 @@ const HackathonDetails = () => {
                   </div>
                 </div>
               </div>
-              
-              {/* Timeline */}
-              <div>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-                  Timeline
-                </h2>
-                <div className="space-y-6">
-                  <div className="relative pl-8 pb-6 border-l-2 border-axiom-200 dark:border-axiom-800">
-                    <div className="absolute left-[-8px] top-0 h-4 w-4 rounded-full bg-axiom-500"></div>
-                    <div>
-                      <p className="text-sm text-axiom-600 dark:text-axiom-400 font-medium">
-                        Registration Opens
-                      </p>
-                      <p className="text-gray-700 dark:text-gray-300 mt-1">
-                        Teams can register and start forming
-                      </p>
-                    </div>
-                  </div>
-                  <div className="relative pl-8 pb-6 border-l-2 border-axiom-200 dark:border-axiom-800">
-                    <div className="absolute left-[-8px] top-0 h-4 w-4 rounded-full bg-axiom-500"></div>
-                    <div>
-                      <p className="text-sm text-axiom-600 dark:text-axiom-400 font-medium">
-                        Registration Deadline: {hackathon.registrationDeadline}
-                      </p>
-                      <p className="text-gray-700 dark:text-gray-300 mt-1">
-                        Last day to register and form teams
-                      </p>
-                    </div>
-                  </div>
-                  <div className="relative pl-8 pb-6 border-l-2 border-axiom-200 dark:border-axiom-800">
-                    <div className="absolute left-[-8px] top-0 h-4 w-4 rounded-full bg-axiom-500"></div>
-                    <div>
-                      <p className="text-sm text-axiom-600 dark:text-axiom-400 font-medium">
-                        Hackathon Starts: {hackathon.startDate}
-                      </p>
-                      <p className="text-gray-700 dark:text-gray-300 mt-1">
-                        Coding begins! Kickoff meeting and theme announcement
-                      </p>
-                    </div>
-                  </div>
-                  <div className="relative pl-8">
-                    <div className="absolute left-[-8px] top-0 h-4 w-4 rounded-full bg-axiom-500"></div>
-                    <div>
-                      <p className="text-sm text-axiom-600 dark:text-axiom-400 font-medium">
-                        Hackathon Ends: {hackathon.endDate}
-                      </p>
-                      <p className="text-gray-700 dark:text-gray-300 mt-1">
-                        Submission deadline and final presentations
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
             
             <div className="space-y-8">
               {/* Organizer */}
-              <div className="card p-6">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
-                  Organized by
-                </h3>
-                <UserCard user={hackathon.organizer} compact={true} />
-                <div className="mt-4">
-                  <button className="btn btn-outline w-full">
-                    <MessageSquare size={18} className="mr-2" />
-                    Contact Organizer
-                  </button>
+              {hackathon.organizer && (
+                <div className="card p-6">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
+                    Organized by
+                  </h3>
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={hackathon.organizer.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(hackathon.organizer.name)}&background=6366f1&color=fff`}
+                      alt={hackathon.organizer.name}
+                      className="w-12 h-12 rounded-full"
+                    />
+                    <div>
+                      <p className="font-semibold text-gray-900 dark:text-white">{hackathon.organizer.name}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Organizer</p>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <button className="btn btn-outline w-full">
+                      <MessageSquare size={18} className="mr-2" />
+                      Contact Organizer
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
               
               {/* Need a Team? */}
               <div className="card p-6 bg-gradient-to-br from-axiom-500 to-axiom-600 text-white">
@@ -330,12 +421,12 @@ const HackathonDetails = () => {
                   Categories
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {hackathon.tags.map((tag, index) => (
+                  {hackathon.hackathon_tag_relations?.map((relation: any, index: number) => (
                     <span 
                       key={index} 
                       className="text-sm bg-gray-100 dark:bg-axiom-800 text-gray-800 dark:text-gray-300 px-3 py-1 rounded-full"
                     >
-                      {tag}
+                      {relation.hackathon_tags.name}
                     </span>
                   ))}
                 </div>
@@ -344,159 +435,19 @@ const HackathonDetails = () => {
           </div>
         )}
         
-        {/* Prizes Tab */}
-        {activeTab === 'prizes' && (
-          <div className="space-y-8">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
-                Prizes & Rewards
-              </h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {hackathon.prizes.map((prize, index) => (
-                  <div key={index} className={`card p-6 border-t-4 ${
-                    prize.place === 1 
-                      ? 'border-t-yellow-400' 
-                      : prize.place === 2 
-                        ? 'border-t-gray-400' 
-                        : 'border-t-amber-600'
-                  }`}>
-                    <div className="flex justify-between items-start">
-                      <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                        {prize.place === 1 
-                          ? '🥇 First Place' 
-                          : prize.place === 2 
-                            ? '🥈 Second Place' 
-                            : '🥉 Third Place'
-                        }
-                      </h3>
-                    </div>
-                    <p className="mt-3 text-gray-700 dark:text-gray-300">
-                      {prize.description}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            <div>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-                Additional Benefits
-              </h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="card p-4 flex items-start gap-3">
-                  <div className="p-2 rounded-full bg-purple-100 dark:bg-purple-900/30">
-                    <Trophy size={18} className="text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-gray-900 dark:text-white">MMR Points</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
-                      Earn ranking points based on your performance
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="card p-4 flex items-start gap-3">
-                  <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30">
-                    <Users size={18} className="text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-gray-900 dark:text-white">Networking</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
-                      Connect with industry professionals and peers
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {/* Teams Tab */}
+        {/* Other tabs */}
         {activeTab === 'teams' && (
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                Participating Teams
-              </h2>
-              <button className="btn btn-primary">
-                <UserPlus size={18} className="mr-2" />
-                Create a Team
-              </button>
+          <div className="text-center py-16">
+            <div className="bg-gray-100 dark:bg-axiom-800 h-16 w-16 flex items-center justify-center rounded-full mx-auto mb-4">
+              <Users size={24} className="text-gray-500 dark:text-gray-400" />
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Placeholder teams */}
-              <div className="card p-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-full bg-axiom-500 flex items-center justify-center text-white font-bold">
-                    BB
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-gray-900 dark:text-white">ByteBusters</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">3 members • Frontend focused</p>
-                  </div>
-                </div>
-                <div className="mt-3 flex -space-x-2 overflow-hidden">
-                  {mockUsers.slice(0, 2).map((user, index) => (
-                    <img 
-                      key={index}
-                      src={user.avatar}
-                      alt={user.name}
-                      className="inline-block h-8 w-8 rounded-full ring-2 ring-white dark:ring-axiom-900"
-                    />
-                  ))}
-                  <div className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-axiom-100 dark:bg-axiom-800 ring-2 ring-white dark:ring-axiom-900">
-                    <User size={14} className="text-axiom-600 dark:text-axiom-400" />
-                  </div>
-                </div>
-                <div className="mt-2 text-xs text-axiom-600 dark:text-axiom-400">
-                  Looking for: Backend Developer
-                </div>
-                <button className="btn btn-outline w-full mt-3 text-sm py-1.5">
-                  View Team
-                </button>
-              </div>
-              
-              <div className="card p-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-full bg-pink-500 flex items-center justify-center text-white font-bold">
-                    PP
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-gray-900 dark:text-white">PixelPerfect</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">2 members • Design focused</p>
-                  </div>
-                </div>
-                <div className="mt-3 flex -space-x-2 overflow-hidden">
-                  {mockUsers.slice(1, 2).map((user, index) => (
-                    <img 
-                      key={index}
-                      src={user.avatar}
-                      alt={user.name}
-                      className="inline-block h-8 w-8 rounded-full ring-2 ring-white dark:ring-axiom-900"
-                    />
-                  ))}
-                  <div className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-axiom-100 dark:bg-axiom-800 ring-2 ring-white dark:ring-axiom-900">
-                    <User size={14} className="text-axiom-600 dark:text-axiom-400" />
-                  </div>
-                  <div className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-axiom-100 dark:bg-axiom-800 ring-2 ring-white dark:ring-axiom-900">
-                    <User size={14} className="text-axiom-600 dark:text-axiom-400" />
-                  </div>
-                </div>
-                <div className="mt-2 text-xs text-axiom-600 dark:text-axiom-400">
-                  Looking for: Frontend Developer, Backend Developer
-                </div>
-                <button className="btn btn-outline w-full mt-3 text-sm py-1.5">
-                  View Team
-                </button>
-              </div>
-            </div>
+            <h3 className="text-xl font-medium text-gray-900 dark:text-white mb-2">Teams will appear here</h3>
+            <p className="text-gray-600 dark:text-gray-300">
+              Registered teams will be displayed once registration opens.
+            </p>
           </div>
         )}
         
-        {/* Discussions Tab */}
         {activeTab === 'discussions' && (
           <div className="text-center py-16">
             <div className="bg-gray-100 dark:bg-axiom-800 h-16 w-16 flex items-center justify-center rounded-full mx-auto mb-4">
@@ -506,12 +457,126 @@ const HackathonDetails = () => {
             <p className="text-gray-600 dark:text-gray-300 max-w-md mx-auto mb-6">
               Discussions will be available once you register for this hackathon.
             </p>
-            <button className="btn btn-primary">
+            <button 
+              onClick={() => setShowRegistrationModal(true)}
+              className="btn btn-primary"
+            >
               Register Now
             </button>
           </div>
         )}
       </div>
+
+      {/* Registration Modal */}
+      {showRegistrationModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowRegistrationModal(false)}></div>
+          
+          <div className="relative w-full max-w-md card-elevated animate-scale-in">
+            <div className="flex items-center justify-between p-6 border-b border-navy-200 dark:border-navy-800">
+              <h2 className="text-xl font-bold text-navy-900 dark:text-white">Register for Hackathon</h2>
+              <button
+                onClick={() => setShowRegistrationModal(false)}
+                className="p-2 rounded-xl text-navy-500 dark:text-navy-400 hover:bg-navy-100 dark:hover:bg-navy-800 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle size={18} className="text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Registration Requirements</p>
+                    <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
+                      Enter your Axiom User ID and team members' User IDs in the format: username#hashtag
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="form-label">Your User ID</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="username"
+                    value={registrationData.username}
+                    onChange={(e) => setRegistrationData(prev => ({ ...prev, username: e.target.value }))}
+                    className="input flex-1"
+                  />
+                  <span className="flex items-center text-navy-500 dark:text-navy-400">#</span>
+                  <input
+                    type="text"
+                    placeholder="0000"
+                    value={registrationData.hashtag}
+                    onChange={(e) => setRegistrationData(prev => ({ ...prev, hashtag: e.target.value }))}
+                    className="input w-20"
+                    maxLength={4}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="form-label">Team Members (Optional)</label>
+                  <button
+                    onClick={addTeamMember}
+                    className="text-sm text-electric-blue-600 dark:text-electric-blue-400 hover:underline"
+                  >
+                    + Add Member
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {registrationData.teamMembers.map((member, index) => (
+                    <div key={index} className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="username#0000"
+                        value={member}
+                        onChange={(e) => updateTeamMember(index, e.target.value)}
+                        className="input flex-1"
+                      />
+                      {registrationData.teamMembers.length > 1 && (
+                        <button
+                          onClick={() => removeTeamMember(index)}
+                          className="p-2 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 p-6 border-t border-navy-200 dark:border-navy-800">
+              <button
+                onClick={() => setShowRegistrationModal(false)}
+                className="btn btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRegistration}
+                disabled={isRegistering || !registrationData.username || !registrationData.hashtag}
+                className="btn btn-primary flex-1"
+              >
+                {isRegistering ? (
+                  <div className="flex items-center justify-center">
+                    <div className="spinner mr-2"></div>
+                    Registering...
+                  </div>
+                ) : (
+                  'Register'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
