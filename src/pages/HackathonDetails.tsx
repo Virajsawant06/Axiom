@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Calendar, MapPin, Trophy, Users, Clock, ArrowLeft, Share2, Heart, MessageSquare, UserPlus, X, AlertCircle } from 'lucide-react';
 import { HackathonService } from '../services/hackathonService';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, supabase } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import UserCard from '../components/ui/UserCard';
 
@@ -103,8 +103,14 @@ const HackathonDetails = () => {
         .eq('hashtag', hashtag)
         .single();
 
-      return !error && data;
+      if (error) {
+        console.error('User validation error:', error);
+        return false;
+      }
+
+      return !!data;
     } catch (error) {
+      console.error('Error validating user:', error);
       return false;
     }
   };

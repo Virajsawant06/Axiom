@@ -61,12 +61,12 @@ export class ConversationService {
       (data || []).map(async (item) => {
         const conversation = item.conversations
 
-        // Get participants
+        // Get participants with proper user data
         const { data: participants } = await supabase
           .from('conversation_participants')
           .select(`
             user_id,
-            users!inner(id, name, avatar_url, username)
+            users!inner(id, name, avatar_url, username, hashtag)
           `)
           .eq('conversation_id', conversation.id)
 
@@ -78,7 +78,7 @@ export class ConversationService {
             content,
             sent_at,
             sender_id,
-            users!sender_id(id, name, avatar_url)
+            users!sender_id(id, name, avatar_url, username, hashtag)
           `)
           .eq('conversation_id', conversation.id)
           .order('sent_at', { ascending: false })
@@ -87,8 +87,23 @@ export class ConversationService {
 
         return {
           ...conversation,
-          participants: participants?.map(p => p.users) || [],
-          last_message: lastMessage
+          participants: participants?.map(p => ({
+            id: p.users.id,
+            name: p.users.name,
+            avatar_url: p.users.avatar_url,
+            username: p.users.username,
+            hashtag: p.users.hashtag
+          })) || [],
+          last_message: lastMessage ? {
+            ...lastMessage,
+            sender: lastMessage.users ? {
+              id: lastMessage.users.id,
+              name: lastMessage.users.name,
+              avatar_url: lastMessage.users.avatar_url,
+              username: lastMessage.users.username,
+              hashtag: lastMessage.users.hashtag
+            } : null
+          } : null
         }
       })
     )
@@ -171,7 +186,9 @@ export class ConversationService {
         users!sender_id(
           id,
           name,
-          avatar_url
+          avatar_url,
+          username,
+          hashtag
         )
       `)
       .eq('conversation_id', conversationId)
@@ -192,9 +209,13 @@ export class ConversationService {
       edited_at: message.edited_at,
       sender: message.users ? {
         id: message.users.id,
-        name: message.users.name,
-        avatar_url: message.users.avatar_url
-      } : undefined
+        name: message.users.name || 'Unknown User',
+        avatar_url: message.users.avatar_url || `https://ui-avatars.com/api/?name=Unknown&background=6366f1&color=fff`
+      } : {
+        id: 'unknown',
+        name: 'Unknown User',
+        avatar_url: `https://ui-avatars.com/api/?name=Unknown&background=6366f1&color=fff`
+      }
     }))
   }
 
@@ -228,7 +249,9 @@ export class ConversationService {
         users!sender_id(
           id,
           name,
-          avatar_url
+          avatar_url,
+          username,
+          hashtag
         )
       `)
       .single()
@@ -253,9 +276,13 @@ export class ConversationService {
       edited_at: data.edited_at,
       sender: data.users ? {
         id: data.users.id,
-        name: data.users.name,
-        avatar_url: data.users.avatar_url
-      } : undefined
+        name: data.users.name || 'Unknown User',
+        avatar_url: data.users.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.users.name || 'Unknown')}&background=6366f1&color=fff`
+      } : {
+        id: 'unknown',
+        name: 'Unknown User',
+        avatar_url: `https://ui-avatars.com/api/?name=Unknown&background=6366f1&color=fff`
+      }
     }
   }
 
@@ -278,18 +305,25 @@ export class ConversationService {
 
     if (error) throw error
 
-    // Get participants
+    // Get participants with proper user data
     const { data: participants } = await supabase
       .from('conversation_participants')
       .select(`
         user_id,
-        users!inner(id, name, avatar_url, username, verified)
+        users!inner(id, name, avatar_url, username, hashtag, verified)
       `)
       .eq('conversation_id', conversationId)
 
     return {
       ...data,
-      participants: participants?.map(p => p.users) || []
+      participants: participants?.map(p => ({
+        id: p.users.id,
+        name: p.users.name,
+        avatar_url: p.users.avatar_url,
+        username: p.users.username,
+        hashtag: p.users.hashtag,
+        verified: p.users.verified
+      })) || []
     }
   }
 

@@ -79,7 +79,9 @@ const Messages = () => {
               users!sender_id(
                 id,
                 name,
-                avatar_url
+                avatar_url,
+                username,
+                hashtag
               )
             `)
             .eq('id', payload.new.id)
@@ -97,9 +99,13 @@ const Messages = () => {
               edited_at: messageWithSender.edited_at,
               sender: messageWithSender.users ? {
                 id: messageWithSender.users.id,
-                name: messageWithSender.users.name,
-                avatar_url: messageWithSender.users.avatar_url
-              } : undefined
+                name: messageWithSender.users.name || 'Unknown User',
+                avatar_url: messageWithSender.users.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(messageWithSender.users.name || 'Unknown')}&background=6366f1&color=fff`
+              } : {
+                id: 'unknown',
+                name: 'Unknown User',
+                avatar_url: `https://ui-avatars.com/api/?name=Unknown&background=6366f1&color=fff`
+              }
             };
 
             // Add the new message to the state
@@ -293,7 +299,7 @@ const Messages = () => {
                             {getConversationName(conversation)}
                           </h3>
                           <span className="text-xs text-navy-500 dark:text-navy-400">
-                            {formatMessageTime(conversation.updated_at)}
+                            {conversation.last_message ? formatMessageTime(conversation.updated_at) : ''}
                           </span>
                         </div>
                         
@@ -364,7 +370,7 @@ const Messages = () => {
                       {!isOwnMessage && showAvatar && (
                         <img
                           src={message.sender?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(message.sender?.name || 'User')}&background=6366f1&color=fff`}
-                          alt={message.sender?.name}
+                          alt={message.sender?.name || 'Unknown User'}
                           className="w-8 h-8 rounded-full object-cover"
                         />
                       )}
