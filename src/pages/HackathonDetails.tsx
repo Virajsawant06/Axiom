@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Calendar, MapPin, Trophy, Users, Clock, ArrowLeft, Share2, Heart, MessageSquare, UserPlus, X, AlertCircle } from 'lucide-react';
 import { HackathonService } from '../services/hackathonService';
+import { EmailService } from '../services/emailService';
 import { useAuth, supabase } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import UserCard from '../components/ui/UserCard';
@@ -49,7 +50,7 @@ const HackathonDetails = () => {
     try {
       // Validate user exists
       const userExists = await validateUser(registrationData.username, registrationData.hashtag);
-      if (!userExists) {
+      if (!userExists.exists) {
         showError('User not found', `User ${registrationData.username}#${registrationData.hashtag} is not registered on Axiom.`);
         setIsRegistering(false);
         return;
@@ -67,19 +68,32 @@ const HackathonDetails = () => {
           }
           
           const memberExists = await validateUser(username.trim(), hashtag.trim());
-          if (!memberExists) {
+          if (!memberExists.exists) {
             showError('Team member not found', `User ${username.trim()}#${hashtag.trim()} is not registered on Axiom.`);
             setIsRegistering(false);
             return;
           }
-          validTeamMembers.push(member.trim());
+          validTeamMembers.push(memberExists.user);
         }
       }
 
       // Register for hackathon
       await HackathonService.registerForHackathon(hackathon.id, user.id);
       
-      showSuccess('Registration successful!', `You have been registered for ${hackathon.name}.`);
+      // Send registration emails
+      try {
+        await EmailService.sendRegistrationEmails(
+          hackathon,
+          userExists.user,
+          validTeamMembers,
+          validTeamMembers.length > 0 ? 'team' : 'individual'
+        );
+        showSuccess('Registration successful!', `You have been registered for ${hackathon.name}. Check your email for confirmation details.`);
+      } catch (emailError) {
+        console.error('Email sending failed:', emailError);
+        showSuccess('Registration successful!', `You have been registered for ${hackathon.name}. (Email notification failed to send)`);
+      }
+      
       setShowRegistrationModal(false);
       setRegistrationData({ username: '', hashtag: '', teamMembers: [''] });
     } catch (error: any) {
@@ -98,20 +112,20 @@ const HackathonDetails = () => {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id')
+        .select('id, name, email, username, hashtag, avatar_url')
         .eq('username', username)
         .eq('hashtag', hashtag)
         .single();
 
       if (error) {
         console.error('User validation error:', error);
-        return false;
+        return { exists: false, user: null };
       }
 
-      return !!data;
+      return { exists: !!data, user: data };
     } catch (error) {
       console.error('Error validating user:', error);
-      return false;
+      return { exists: false, user: null };
     }
   };
 

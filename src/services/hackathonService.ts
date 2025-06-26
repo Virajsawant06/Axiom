@@ -71,6 +71,39 @@ export class HackathonService {
     return data
   }
 
+  // Get hackathon registrations with detailed user info
+  static async getHackathonRegistrations(hackathonId: string) {
+    const { data, error } = await supabase
+      .from('hackathon_registrations')
+      .select(`
+        *,
+        user:users(
+          id,
+          name,
+          username,
+          hashtag,
+          email,
+          avatar_url,
+          verified,
+          bio,
+          location,
+          ranking,
+          github_url,
+          linkedin_url,
+          website_url,
+          user_skills(
+            skill:skills(id, name, category)
+          )
+        ),
+        team:teams(id, name, avatar_url)
+      `)
+      .eq('hackathon_id', hackathonId)
+      .order('registered_at', { ascending: false })
+
+    if (error) throw error
+    return data || []
+  }
+
   // Create new hackathon
   static async createHackathon(hackathon: HackathonInsert & { tags?: string[] }) {
     const { tags, ...hackathonData } = hackathon;

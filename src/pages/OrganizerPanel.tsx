@@ -16,7 +16,12 @@ import {
   Edit,
   Trash2,
   Clock,
-  DollarSign
+  DollarSign,
+  UserCheck,
+  Github,
+  Linkedin,
+  Globe,
+  Star
 } from 'lucide-react';
 
 interface HackathonForm {
@@ -41,6 +46,9 @@ const OrganizerPanel = () => {
   const [myHackathons, setMyHackathons] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingHackathon, setEditingHackathon] = useState<any>(null);
+  const [selectedHackathonRegistrations, setSelectedHackathonRegistrations] = useState<any[]>([]);
+  const [showRegistrationsModal, setShowRegistrationsModal] = useState(false);
+  const [registrationCounts, setRegistrationCounts] = useState<Record<string, number>>({});
   
   const [formData, setFormData] = useState<HackathonForm>({
     name: '',
@@ -70,6 +78,11 @@ const OrganizerPanel = () => {
     }
   }, [activeTab]);
 
+  useEffect(() => {
+    // Load registration counts for all hackathons
+    loadRegistrationCounts();
+  }, [myHackathons]);
+
   const loadMyHackathons = async () => {
     try {
       setIsLoading(true);
@@ -79,6 +92,35 @@ const OrganizerPanel = () => {
     } catch (error) {
       console.error('Error loading hackathons:', error);
       showError('Failed to load hackathons', 'Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadRegistrationCounts = async () => {
+    try {
+      const counts: Record<string, number> = {};
+      await Promise.all(
+        myHackathons.map(async (hackathon) => {
+          const registrations = await HackathonService.getHackathonRegistrations(hackathon.id);
+          counts[hackathon.id] = registrations.length;
+        })
+      );
+      setRegistrationCounts(counts);
+    } catch (error) {
+      console.error('Error loading registration counts:', error);
+    }
+  };
+
+  const loadHackathonRegistrations = async (hackathonId: string) => {
+    try {
+      setIsLoading(true);
+      const registrations = await HackathonService.getHackathonRegistrations(hackathonId);
+      setSelectedHackathonRegistrations(registrations);
+      setShowRegistrationsModal(true);
+    } catch (error) {
+      console.error('Error loading registrations:', error);
+      showError('Failed to load registrations', 'Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -606,6 +648,14 @@ const OrganizerPanel = () => {
                             </span>
                           </div>
                         </div>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-electric-blue-600 dark:text-electric-blue-400">
+                            {registrationCounts[hackathon.id] || 0}
+                          </div>
+                          <div className="text-xs text-navy-500 dark:text-navy-400">
+                            registered
+                          </div>
+                        </div>
                       </div>
 
                       <p className="text-navy-600 dark:text-navy-300 text-sm mb-4 line-clamp-2">
@@ -636,11 +686,17 @@ const OrganizerPanel = () => {
                           View
                         </button>
                         <button
-                          onClick={() => handleEdit(hackathon)}
+                          onClick={() => loadHackathonRegistrations(hackathon.id)}
                           className="btn btn-primary flex-1 text-sm py-2"
                         >
+                          <Users size={16} />
+                          Registrations
+                        </button>
+                        <button
+                          onClick={() => handleEdit(hackathon)}
+                          className="btn btn-secondary text-sm py-2 px-3"
+                        >
                           <Edit size={16} />
-                          Edit
                         </button>
                       </div>
                     </div>
@@ -649,6 +705,154 @@ const OrganizerPanel = () => {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Registrations Modal */}
+      {showRegistrationsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowRegistrationsModal(false)}></div>
+          
+          <div className="relative w-full max-w-4xl card-elevated animate-scale-in max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-navy-200 dark:border-navy-800">
+              <h2 className="text-xl font-bold text-navy-900 dark:text-white">
+                Hackathon Registrations ({selectedHackathonRegistrations.length})
+              </h2>
+              <button
+                onClick={() => setShowRegistrationsModal(false)}
+                className="p-2 rounded-xl text-navy-500 dark:text-navy-400 hover:bg-navy-100 dark:hover:bg-navy-800 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto max-h-96 p-6">
+              {selectedHackathonRegistrations.length === 0 ? (
+                <div className="text-center py-8">
+                  <Users size={48} className="mx-auto text-navy-400 dark:text-navy-500 mb-4" />
+                  <h3 className="text-lg font-medium text-navy-900 dark:text-white mb-2">No registrations yet</h3>
+                  <p className="text-navy-600 dark:text-navy-300">
+                    Participants will appear here once they register for your hackathon.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {selectedHackathonRegistrations.map((registration) => (
+                    <div key={registration.id} className="card p-4">
+                      <div className="flex items-start gap-4">
+                        <img
+                          src={registration.user?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(registration.user?.name || 'User')}&background=6366f1&color=fff`}
+                          alt={registration.user?.name}
+                          className="w-12 h-12 rounded-full object-cover"
+                        />
+                        
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h3 className="font-semibold text-navy-900 dark:text-white">
+                              {registration.user?.name}
+                            </h3>
+                            {registration.user?.verified && (
+                              <UserCheck size={16} className="text-electric-blue-500" />
+                            )}
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              registration.status === 'approved' 
+                                ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                                : registration.status === 'pending'
+                                  ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
+                                  : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
+                            }`}>
+                              {registration.status}
+                            </span>
+                          </div>
+                          
+                          <div className="text-sm text-navy-600 dark:text-navy-300 mb-2">
+                            @{registration.user?.username}#{registration.user?.hashtag}
+                          </div>
+                          
+                          {registration.user?.bio && (
+                            <p className="text-sm text-navy-600 dark:text-navy-300 mb-3">
+                              {registration.user.bio}
+                            </p>
+                          )}
+                          
+                          <div className="flex items-center gap-4 text-sm">
+                            {registration.user?.location && (
+                              <span className="text-navy-500 dark:text-navy-400">
+                                📍 {registration.user.location}
+                              </span>
+                            )}
+                            {registration.user?.ranking && (
+                              <span className="text-navy-500 dark:text-navy-400 flex items-center gap-1">
+                                <Star size={12} />
+                                {registration.user.ranking} MMR
+                              </span>
+                            )}
+                            <span className="text-navy-500 dark:text-navy-400">
+                              {registration.registration_type === 'team' ? '👥 Team' : '👤 Individual'}
+                            </span>
+                          </div>
+                          
+                          {/* Skills */}
+                          {registration.user?.user_skills && registration.user.user_skills.length > 0 && (
+                            <div className="mt-3">
+                              <div className="flex flex-wrap gap-1">
+                                {registration.user.user_skills.slice(0, 5).map((userSkill: any, index: number) => (
+                                  <span 
+                                    key={index}
+                                    className="text-xs bg-navy-100 dark:bg-navy-800 text-navy-700 dark:text-navy-300 px-2 py-1 rounded-full"
+                                  >
+                                    {userSkill.skill?.name}
+                                  </span>
+                                ))}
+                                {registration.user.user_skills.length > 5 && (
+                                  <span className="text-xs bg-navy-100 dark:bg-navy-800 text-navy-700 dark:text-navy-300 px-2 py-1 rounded-full">
+                                    +{registration.user.user_skills.length - 5} more
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          {registration.user?.github_url && (
+                            <a
+                              href={`https://${registration.user.github_url}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-2 rounded-xl text-navy-500 dark:text-navy-400 hover:bg-navy-100 dark:hover:bg-navy-800 transition-colors"
+                            >
+                              <Github size={16} />
+                            </a>
+                          )}
+                          {registration.user?.linkedin_url && (
+                            <a
+                              href={`https://${registration.user.linkedin_url}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-2 rounded-xl text-navy-500 dark:text-navy-400 hover:bg-navy-100 dark:hover:bg-navy-800 transition-colors"
+                            >
+                              <Linkedin size={16} />
+                            </a>
+                          )}
+                          {registration.user?.website_url && (
+                            <a
+                              href={registration.user.website_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-2 rounded-xl text-navy-500 dark:text-navy-400 hover:bg-navy-100 dark:hover:bg-navy-800 transition-colors"
+                            >
+                              <Globe size={16} />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

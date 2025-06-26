@@ -5,7 +5,8 @@ import { useToast } from '../contexts/ToastContext';
 import { UserService } from '../services/userService';
 import { FriendService } from '../services/friendService';
 import { ConversationService } from '../services/conversationService';
-import { MapPin, Trophy, Users, Star, Github as GitHub, Linkedin, Globe, Code, MessageSquare, UserPlus, Calendar, Cog, Clock, UserCheck, Check, Copy } from 'lucide-react';
+import { GitHubService, GitHubRepo } from '../services/githubService';
+import { MapPin, Trophy, Users, Star, Github as GitHub, Linkedin, Globe, Code, MessageSquare, UserPlus, Calendar, Cog, Clock, UserCheck, Check, Copy, ExternalLink, GitFork, Eye } from 'lucide-react';
 import { mockHackathons, mockTeams } from '../data/mockData';
 
 const Profile = () => {
@@ -19,6 +20,11 @@ const Profile = () => {
   const [friendshipStatus, setFriendshipStatus] = useState<any>(null);
   const [loadingFriendRequest, setLoadingFriendRequest] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState(false);
+  const [githubRepos, setGithubRepos] = useState<GitHubRepo[]>([]);
+  const [loadingRepos, setLoadingRepos] = useState(false);
+  const [selectedRepo, setSelectedRepo] = useState<GitHubRepo | null>(null);
+  const [repoReadme, setRepoReadme] = useState<string | null>(null);
+  const [showReadmeModal, setShowReadmeModal] = useState(false);
   
   useEffect(() => {
     if (userId) {
@@ -28,6 +34,12 @@ const Profile = () => {
       }
     }
   }, [userId, currentUser]);
+
+  useEffect(() => {
+    if (profileUser?.github && activeTab === 'projects') {
+      loadGitHubRepos();
+    }
+  }, [profileUser, activeTab]);
 
   const loadUserProfile = async () => {
     if (!userId) return;
@@ -75,6 +87,35 @@ const Profile = () => {
       setFriendshipStatus(status);
     } catch (error) {
       console.error('Error loading friendship status:', error);
+    }
+  };
+
+  const loadGitHubRepos = async () => {
+    if (!profileUser?.github) return;
+    
+    setLoadingRepos(true);
+    try {
+      const repos = await GitHubService.getUserRepos(profileUser.github);
+      setGithubRepos(repos);
+    } catch (error) {
+      console.error('Error loading GitHub repos:', error);
+      showError('Failed to load GitHub projects', 'Could not fetch projects from GitHub.');
+    } finally {
+      setLoadingRepos(false);
+    }
+  };
+
+  const loadRepoReadme = async (repo: GitHubRepo) => {
+    setSelectedRepo(repo);
+    setRepoReadme(null);
+    setShowReadmeModal(true);
+    
+    try {
+      const readme = await GitHubService.getRepoReadme(repo.full_name);
+      setRepoReadme(readme);
+    } catch (error) {
+      console.error('Error loading README:', error);
+      setRepoReadme('README not available for this repository.');
     }
   };
 
@@ -202,6 +243,14 @@ const Profile = () => {
       disabled: false,
       className: 'btn bg-white/10 text-white backdrop-blur-sm hover:bg-white/20'
     };
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
   };
 
   if (isLoading) {
@@ -555,21 +604,144 @@ const Profile = () => {
             </div>
           )}
           
+          {/* Projects Tab - GitHub Integration */}
+          {activeTab === 'projects' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                  GitHub Projects
+                </h2>
+                {profileUser.github && (
+                  <a
+                    href={`https://${profileUser.github}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-secondary text-sm"
+                  >
+                    <GitHub size={16} className="mr-2" />
+                    View GitHub Profile
+                  </a>
+                )}
+              </div>
+
+              {!profileUser.github ? (
+                <div className="card p-8 text-center">
+                  <GitHub size={48} className="mx-auto text-gray-400 dark:text-gray-500 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No GitHub Profile</h3>
+                  <p className="text-gray-600 dark:text-gray-300">
+                    {isOwnProfile 
+                      ? 'Add your GitHub profile to showcase your projects here.'
+                      : 'This user hasn\'t added their GitHub profile yet.'
+                    }
+                  </p>
+                </div>
+              ) : loadingRepos ? (
+                <div className="text-center py-8">
+                  <div className="spinner mx-auto mb-4"></div>
+                  <p className="text-gray-600 dark:text-gray-300">Loading GitHub projects...</p>
+                </div>
+              ) : githubRepos.length === 0 ? (
+                <div className="card p-8 text-center">
+                  <Code size={48} className="mx-auto text-gray-400 dark:text-gray-500 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No Public Repositories</h3>
+                  <p className="text-gray-600 dark:text-gray-300">
+                    No public repositories found on GitHub.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {githubRepos.map((repo) => (
+                    <div key={repo.id} className="card p-6 hover-lift">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h3 className="font-bold text-gray-900 dark:text-white mb-1">
+                            {repo.name}
+                          </h3>
+                          {repo.description && (
+                            <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+                              {repo.description}
+                            </p>
+                          )}
+                        </div>
+                        <a
+                          href={repo.html_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 rounded-xl text-gray-500 dark:text-gray-400 hover:text-electric-blue-600 dark:hover:text-electric-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        >
+                          <ExternalLink size={16} />
+                        </a>
+                      </div>
+
+                      <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-3">
+                        {repo.language && (
+                          <span className="flex items-center gap-1">
+                            <div className="w-3 h-3 rounded-full bg-electric-blue-500"></div>
+                            {repo.language}
+                          </span>
+                        )}
+                        <span className="flex items-center gap-1">
+                          <Star size={14} />
+                          {repo.stargazers_count}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <GitFork size={14} />
+                          {repo.forks_count}
+                        </span>
+                      </div>
+
+                      {repo.topics.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-4">
+                          {repo.topics.slice(0, 3).map((topic) => (
+                            <span
+                              key={topic}
+                              className="text-xs bg-electric-blue-100 dark:bg-electric-blue-900/30 text-electric-blue-800 dark:text-electric-blue-300 px-2 py-1 rounded-full"
+                            >
+                              {topic}
+                            </span>
+                          ))}
+                          {repo.topics.length > 3 && (
+                            <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2 py-1 rounded-full">
+                              +{repo.topics.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => loadRepoReadme(repo)}
+                          className="btn btn-secondary flex-1 text-sm py-2"
+                        >
+                          <Eye size={14} className="mr-1" />
+                          View README
+                        </button>
+                        <a
+                          href={repo.html_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn-primary text-sm py-2 px-3"
+                        >
+                          <GitHub size={14} />
+                        </a>
+                      </div>
+
+                      <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                        Updated {formatDate(repo.updated_at)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          
           {/* Other tabs - placeholder content */}
           {activeTab === 'hackathons' && (
             <div className="text-center py-10">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Hackathons History</h2>
               <p className="text-gray-600 dark:text-gray-300">
                 Detailed hackathon history will be displayed here. This tab is under development.
-              </p>
-            </div>
-          )}
-          
-          {activeTab === 'projects' && (
-            <div className="text-center py-10">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Projects Portfolio</h2>
-              <p className="text-gray-600 dark:text-gray-300">
-                Detailed projects portfolio will be displayed here. This tab is under development.
               </p>
             </div>
           )}
@@ -584,6 +756,58 @@ const Profile = () => {
           )}
         </div>
       </div>
+
+      {/* README Modal */}
+      {showReadmeModal && selectedRepo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowReadmeModal(false)}></div>
+          
+          <div className="relative w-full max-w-4xl card-elevated animate-scale-in max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-navy-200 dark:border-navy-800">
+              <div>
+                <h2 className="text-xl font-bold text-navy-900 dark:text-white">
+                  {selectedRepo.name}
+                </h2>
+                <p className="text-sm text-navy-600 dark:text-navy-300">
+                  {selectedRepo.description}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={selectedRepo.html_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-secondary text-sm"
+                >
+                  <GitHub size={16} className="mr-1" />
+                  View on GitHub
+                </a>
+                <button
+                  onClick={() => setShowReadmeModal(false)}
+                  className="p-2 rounded-xl text-navy-500 dark:text-navy-400 hover:bg-navy-100 dark:hover:bg-navy-800 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-y-auto max-h-96 p-6">
+              {repoReadme === null ? (
+                <div className="text-center py-8">
+                  <div className="spinner mx-auto mb-4"></div>
+                  <p className="text-navy-600 dark:text-navy-300">Loading README...</p>
+                </div>
+              ) : (
+                <div className="prose prose-sm dark:prose-invert max-w-none">
+                  <pre className="whitespace-pre-wrap text-sm text-navy-700 dark:text-navy-300 leading-relaxed">
+                    {repoReadme}
+                  </pre>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
