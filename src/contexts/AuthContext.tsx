@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from('users')
         .select(`*`)
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (profileError) {
         console.error('Error fetching user profile:', profileError);
