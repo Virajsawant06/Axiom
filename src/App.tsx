@@ -11,6 +11,7 @@ import Hackathons from './pages/Hackathons';
 import HackathonDetails from './pages/HackathonDetails';
 import Teams from './pages/Teams';
 import Messages from './pages/Messages';
+import Settings from './pages/Settings';
 import OrganizerPanel from './pages/OrganizerPanel';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
@@ -93,6 +94,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <Messages />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/settings" 
+                  element={
+                    <ProtectedRoute>
+                      <Settings />
                     </ProtectedRoute>
                   } 
                 />

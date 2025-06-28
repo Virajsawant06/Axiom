@@ -170,6 +170,66 @@ export class ConversationService {
     return newConversation.id;
   }
 
+  // Create team conversation
+  static async createTeamConversation(teamId: string, createdBy: string, teamName: string) {
+    // Create conversation
+    const { data: newConversation, error: conversationError } = await supabase
+      .from('conversations')
+      .insert({
+        type: 'team',
+        name: teamName,
+        team_id: teamId,
+        created_by: createdBy
+      })
+      .select('id')
+      .single();
+
+    if (conversationError) throw conversationError;
+
+    // Add team creator as participant
+    const { error: participantError } = await supabase
+      .from('conversation_participants')
+      .insert({
+        conversation_id: newConversation.id,
+        user_id: createdBy
+      });
+
+    if (participantError) throw participantError;
+
+    return newConversation.id;
+  }
+
+  // Get or create team conversation
+  static async getOrCreateTeamConversation(teamId: string, userId: string, teamName: string) {
+    // Check if team conversation exists
+    const { data: existingConversation } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('team_id', teamId)
+      .eq('type', 'team')
+      .single();
+
+    if (existingConversation) {
+      // Add user as participant if not already
+      const { error: participantError } = await supabase
+        .from('conversation_participants')
+        .insert({
+          conversation_id: existingConversation.id,
+          user_id: userId
+        });
+
+      // Ignore duplicate key errors
+      if (participantError && !participantError.message.includes('duplicate key')) {
+        throw participantError;
+      }
+
+      return existingConversation.id;
+    }
+
+    // Create new team conversation
+    return this.createTeamConversation(teamId, userId, teamName);
+  }
+
   // Get messages for a conversation
   static async getConversationMessages(conversationId: string, limit = 50) {
     const { data, error } = await supabase

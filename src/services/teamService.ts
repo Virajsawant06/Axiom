@@ -22,6 +22,7 @@ export class TeamService {
           joined_at,
           user:users(id, name, avatar_url, verified)
         ),
+        hackathon:hackathons(id, name, start_date, end_date, location),
         hackathon_submissions(
           hackathon:hackathons(id, name),
           placement
@@ -148,5 +149,30 @@ export class TeamService {
       user_role: item.role,
       joined_at: item.joined_at
     })) || []
+  }
+
+  // Send team invite
+  static async sendTeamInvite(teamId: string, userId: string, invitedBy: string) {
+    // Create notification for the invited user
+    const { error } = await supabase
+      .from('notifications')
+      .insert({
+        user_id: userId,
+        type: 'team_invite',
+        title: 'Team Invitation',
+        content: 'You have been invited to join a team',
+        data: {
+          team_id: teamId,
+          invited_by: invitedBy,
+          type: 'team_invite'
+        }
+      })
+
+    if (error) throw error
+  }
+
+  // Accept team invite
+  static async acceptTeamInvite(teamId: string, userId: string) {
+    return this.joinTeam(teamId, userId)
   }
 }
