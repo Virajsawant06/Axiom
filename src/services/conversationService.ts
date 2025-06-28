@@ -83,7 +83,7 @@ export class ConversationService {
           .eq('conversation_id', conversation.id)
           .order('sent_at', { ascending: false })
           .limit(1)
-          .single()
+          .maybeSingle()
 
         return {
           ...conversation,
