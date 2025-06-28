@@ -136,12 +136,14 @@ export class TeamMatchingService {
     }
   ];
 
-  // Search for compatible teammates
+  // Search for compatible teammates with improved algorithm
   static async searchTeammates(
     currentUserId: string,
     filters: SearchFilters
   ): Promise<CompatibilityScore[]> {
-    // Build the query
+    console.log('Searching teammates with filters:', filters);
+
+    // Build the query with more flexible filtering
     let query = supabase
       .from('users')
       .select(`
@@ -155,6 +157,8 @@ export class TeamMatchingService {
         ranking,
         verified,
         role,
+        github_repos_count,
+        hackathons_participated,
         user_skills(
           proficiency_level,
           skill:skills(id, name, category)
@@ -162,43 +166,180 @@ export class TeamMatchingService {
       `)
       .neq('id', currentUserId);
 
-    // Apply MMR range filter
-    if (filters.mmrRange[0] > 0 || filters.mmrRange[1] < 10000) {
-      query = query
-        .gte('ranking', filters.mmrRange[0])
-        .lte('ranking', filters.mmrRange[1]);
-    }
-
-    // Apply location filter
-    if (filters.location) {
-      query = query.ilike('location', `%${filters.location}%`);
-    }
-
-    // Apply role filter
+    // Apply role filter only if specified
     if (filters.roles.length > 0) {
       query = query.in('role', filters.roles);
     }
 
-    const { data: users, error } = await query.limit(50);
+    // Apply location filter only if specified and not empty
+    if (filters.location && filters.location.trim()) {
+      query = query.ilike('location', `%${filters.location.trim()}%`);
+    }
 
-    if (error) throw error;
+    // Get more users for better matching (increased limit)
+    const { data: users, error } = await query.limit(100);
+
+    if (error) {
+      console.error('Error fetching users:', error);
+      throw error;
+    }
+
+    console.log(`Found ${users?.length || 0} potential users`);
+
+    if (!users || users.length === 0) {
+      return [];
+    }
 
     // Get current user data for compatibility calculation
-    const { data: currentUser } = await supabase
+    const { data: currentUser, error: currentUserError } = await supabase
       .from('users')
-      .select('ranking, location, user_skills(skill:skills(name))')
+      .select(`
+        ranking, 
+        location, 
+        github_repos_count,
+        hackathons_participated,
+        user_skills(skill:skills(name))
+      `)
       .eq('id', currentUserId)
       .single();
 
-    if (!currentUser) throw new Error('Current user not found');
+    if (currentUserError || !currentUser) {
+      console.error('Error fetching current user:', currentUserError);
+      throw new Error('Current user not found');
+    }
 
-    // Calculate compatibility scores
-    const compatibilityScores = (users || [])
-      .map(user => MMRService.calculateCompatibility(currentUser, user, filters.skills))
-      .filter(score => score.score >= filters.minCompatibility)
+    console.log('Current user data:', currentUser);
+
+    // Calculate compatibility scores with improved algorithm
+    const compatibilityScores = users
+      .map(user => {
+        const score = this.calculateImprovedCompatibility(currentUser, user, filters);
+        console.log(`User ${user.name}: ${score.score}% compatibility`);
+        return score;
+      })
+      .filter(score => {
+        // Apply MMR range filter here for more flexibility
+        const mmrInRange = score.mmrDifference <= Math.abs(filters.mmrRange[1] - filters.mmrRange[0]) / 2;
+        const meetsMinCompatibility = score.score >= filters.minCompatibility;
+        
+        console.log(`User ${score.userId}: MMR in range: ${mmrInRange}, Meets min compatibility: ${meetsMinCompatibility}`);
+        return meetsMinCompatibility;
+      })
       .sort((a, b) => b.score - a.score);
 
+    console.log(`Final results: ${compatibilityScores.length} compatible users`);
     return compatibilityScores;
+  }
+
+  // Improved compatibility calculation
+  private static calculateImprovedCompatibility(
+    currentUser: any,
+    targetUser: any,
+    filters: SearchFilters
+  ): CompatibilityScore {
+    let score = 0;
+    const skillMatches: string[] = [];
+
+    // Get target user's skills
+    const targetSkills = targetUser.user_skills?.map((us: any) => us.skill.name.toLowerCase()) || [];
+    
+    console.log(`Target user ${targetUser.name} skills:`, targetSkills);
+
+    // Skill matching (50% of score) - More flexible matching
+    if (filters.skills.length > 0) {
+      const matchingSkills = filters.skills.filter(skill => 
+        targetSkills.some((ts: string) => 
+          ts.includes(skill.toLowerCase()) || 
+          skill.toLowerCase().includes(ts) ||
+          this.areSkillsRelated(skill.toLowerCase(), ts)
+        )
+      );
+      
+      skillMatches.push(...matchingSkills);
+      
+      // Give partial credit for having any relevant skills
+      const skillScore = targetSkills.length > 0 ? 
+        Math.min((matchingSkills.length / filters.skills.length) * 50 + 
+        (targetSkills.length > 0 ? 10 : 0), 50) : 0;
+      
+      score += skillScore;
+      console.log(`Skill score for ${targetUser.name}: ${skillScore} (${matchingSkills.length}/${filters.skills.length} matches)`);
+    } else {
+      // If no specific skills required, give points for having any skills
+      score += Math.min(targetSkills.length * 2, 20);
+    }
+
+    // MMR compatibility (25% of score) - More lenient
+    const currentMMR = currentUser.ranking || 0;
+    const targetMMR = targetUser.ranking || 0;
+    const mmrDifference = Math.abs(currentMMR - targetMMR);
+    const maxMMRDiff = 2000; // Increased tolerance
+    const mmrScore = Math.max(0, (maxMMRDiff - mmrDifference) / maxMMRDiff) * 25;
+    score += mmrScore;
+
+    // Activity level (15% of score)
+    const targetActivity = (targetUser.hackathons_participated || 0) + (targetUser.github_repos_count || 0);
+    const currentActivity = (currentUser.hackathons_participated || 0) + (currentUser.github_repos_count || 0);
+    
+    // Give points for any activity, not just relative activity
+    const activityScore = Math.min(targetActivity * 2, 15);
+    score += activityScore;
+
+    // Location proximity (10% of score) - More flexible
+    let locationScore = 0;
+    if (currentUser.location && targetUser.location) {
+      const currentLoc = currentUser.location.toLowerCase();
+      const targetLoc = targetUser.location.toLowerCase();
+      
+      if (currentLoc.includes(targetLoc) || targetLoc.includes(currentLoc)) {
+        locationScore = 10;
+      } else if (this.shareLocationKeywords(currentLoc, targetLoc)) {
+        locationScore = 5;
+      }
+    }
+    score += locationScore;
+
+    // Base compatibility bonus (ensure everyone gets some score)
+    score += 10;
+
+    const finalScore = Math.min(Math.round(score), 100);
+    
+    console.log(`Final compatibility for ${targetUser.name}: ${finalScore}%`);
+
+    return {
+      userId: targetUser.id,
+      score: finalScore,
+      skillMatches,
+      mmrDifference,
+      tier: MMRService.getTierByMMR(targetMMR)
+    };
+  }
+
+  // Check if skills are related (e.g., React and JavaScript)
+  private static areSkillsRelated(skill1: string, skill2: string): boolean {
+    const relatedSkills = {
+      'react': ['javascript', 'typescript', 'jsx', 'next.js', 'redux'],
+      'vue': ['javascript', 'typescript', 'nuxt.js'],
+      'angular': ['javascript', 'typescript', 'rxjs'],
+      'node.js': ['javascript', 'typescript', 'express.js'],
+      'python': ['django', 'flask', 'fastapi', 'pandas', 'numpy'],
+      'java': ['spring', 'spring boot', 'hibernate'],
+      'javascript': ['react', 'vue', 'angular', 'node.js', 'typescript'],
+      'typescript': ['react', 'vue', 'angular', 'node.js', 'javascript']
+    };
+
+    const related1 = relatedSkills[skill1] || [];
+    const related2 = relatedSkills[skill2] || [];
+
+    return related1.includes(skill2) || related2.includes(skill1);
+  }
+
+  // Check if locations share keywords
+  private static shareLocationKeywords(loc1: string, loc2: string): boolean {
+    const keywords1 = loc1.split(/[\s,]+/).filter(k => k.length > 2);
+    const keywords2 = loc2.split(/[\s,]+/).filter(k => k.length > 2);
+    
+    return keywords1.some(k1 => keywords2.some(k2 => k1.includes(k2) || k2.includes(k1)));
   }
 
   // Get detailed user info for matched users
@@ -219,6 +360,8 @@ export class TeamMatchingService {
         github_url,
         linkedin_url,
         website_url,
+        github_repos_count,
+        hackathons_participated,
         user_skills(
           proficiency_level,
           skill:skills(id, name, category)
@@ -241,5 +384,47 @@ export class TeamMatchingService {
     return allSkills.filter(skill => 
       skill.toLowerCase().includes(query.toLowerCase())
     ).slice(0, 10);
+  }
+
+  // Add some demo skills to users for testing
+  static async addDemoSkillsToUsers() {
+    try {
+      // Get all users
+      const { data: users } = await supabase
+        .from('users')
+        .select('id')
+        .limit(10);
+
+      if (!users) return;
+
+      // Get some common skills
+      const { data: skills } = await supabase
+        .from('skills')
+        .select('id, name')
+        .in('name', ['JavaScript', 'React', 'Python', 'Node.js', 'TypeScript', 'CSS', 'HTML']);
+
+      if (!skills) return;
+
+      // Add random skills to users
+      for (const user of users) {
+        const randomSkills = skills.sort(() => 0.5 - Math.random()).slice(0, 3);
+        
+        for (const skill of randomSkills) {
+          await supabase
+            .from('user_skills')
+            .insert({
+              user_id: user.id,
+              skill_id: skill.id,
+              proficiency_level: Math.floor(Math.random() * 5) + 1
+            })
+            .on('conflict', () => {}) // Ignore conflicts
+            .select();
+        }
+      }
+
+      console.log('Demo skills added to users');
+    } catch (error) {
+      console.error('Error adding demo skills:', error);
+    }
   }
 }
