@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useAuth, supabase } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import { MMRService } from '../services/mmrService';
 import { GitHubMMRService } from '../services/githubMMRService';
 import { useToast } from '../contexts/ToastContext';

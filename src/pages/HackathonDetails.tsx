@@ -3,7 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import { Calendar, MapPin, Trophy, Users, Clock, ArrowLeft, Share2, Heart, MessageSquare, UserPlus, X, AlertCircle } from 'lucide-react';
 import { HackathonService } from '../services/hackathonService';
 import { EmailService } from '../services/emailService';
-import { useAuth, supabase } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import { useToast } from '../contexts/ToastContext';
 import UserCard from '../components/ui/UserCard';
 

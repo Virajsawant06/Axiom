@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, X, UserPlus, MessageSquare, User, Check, Clock, UserCheck } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { supabase, useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
 import { FriendService } from '../../services/friendService';
 import { ConversationService } from '../../services/conversationService';
 import { useToast } from '../../contexts/ToastContext';
