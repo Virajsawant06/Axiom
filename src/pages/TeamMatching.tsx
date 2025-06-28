@@ -21,37 +21,41 @@ import {
   Globe,
   Trophy,
   Zap,
-  Target
+  Target,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 
 const TeamMatching = () => {
   const { user } = useAuth();
-  const { showSuccess, showError } = useToast();
+  const { showSuccess, showError, showInfo } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [compatibilityScores, setCompatibilityScores] = useState<CompatibilityScore[]>([]);
   const [matchedUsers, setMatchedUsers] = useState<any[]>([]);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true); // Start with filters open
   const [showTeamUpModal, setShowTeamUpModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [teamUpMessage, setTeamUpMessage] = useState('');
+  const [hasSearched, setHasSearched] = useState(false);
   
   const [filters, setFilters] = useState<SearchFilters>({
     roles: [],
     skills: [],
     mmrRange: [0, 10000],
     location: '',
-    minCompatibility: 50
+    minCompatibility: 30 // Lowered from 50 to 30 for more results
   });
 
   const [skillSearch, setSkillSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['Frontend', 'Backend'])); // Start with some categories expanded
 
   const skillCategories = TeamMatchingService.getSkillsByCategory();
   const userTier = user ? MMRService.getTierByMMR(user.ranking) : null;
 
   useEffect(() => {
-    if (user) {
+    // Auto-search with default filters when component loads
+    if (user && !hasSearched) {
       searchTeammates();
     }
   }, [user]);
@@ -60,7 +64,10 @@ const TeamMatching = () => {
     if (!user) return;
 
     setIsLoading(true);
+    setHasSearched(true);
+    
     try {
+      console.log('Starting teammate search...');
       const scores = await TeamMatchingService.searchTeammates(user.id, filters);
       setCompatibilityScores(scores);
 
@@ -75,14 +82,28 @@ const TeamMatching = () => {
         });
         
         setMatchedUsers(mergedData);
+        showSuccess('Search completed!', `Found ${mergedData.length} compatible teammates.`);
       } else {
         setMatchedUsers([]);
+        if (filters.skills.length > 0 || filters.roles.length > 0) {
+          showInfo('No matches found', 'Try reducing your filters or lowering the minimum compatibility score.');
+        }
       }
     } catch (error) {
       console.error('Error searching teammates:', error);
       showError('Search failed', 'Failed to search for teammates. Please try again.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const addDemoSkills = async () => {
+    try {
+      await TeamMatchingService.addDemoSkillsToUsers();
+      showSuccess('Demo skills added!', 'Added random skills to users for testing. Try searching again.');
+    } catch (error) {
+      console.error('Error adding demo skills:', error);
+      showError('Failed to add demo skills', 'Please try again.');
     }
   };
 
@@ -152,18 +173,30 @@ const TeamMatching = () => {
   const getCompatibilityColor = (score: number) => {
     if (score >= 80) return 'text-green-600 dark:text-green-400';
     if (score >= 60) return 'text-yellow-600 dark:text-yellow-400';
+    if (score >= 40) return 'text-orange-600 dark:text-orange-400';
     return 'text-red-600 dark:text-red-400';
   };
 
   const getCompatibilityBg = (score: number) => {
     if (score >= 80) return 'bg-green-100 dark:bg-green-900/30';
     if (score >= 60) return 'bg-yellow-100 dark:bg-yellow-900/30';
+    if (score >= 40) return 'bg-orange-100 dark:bg-orange-900/30';
     return 'bg-red-100 dark:bg-red-900/30';
   };
 
   const filteredSkills = skillSearch
     ? TeamMatchingService.searchSkills(skillSearch)
     : [];
+
+  const clearFilters = () => {
+    setFilters({
+      roles: [],
+      skills: [],
+      mmrRange: [0, 10000],
+      location: '',
+      minCompatibility: 30
+    });
+  };
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -187,25 +220,52 @@ const TeamMatching = () => {
         )}
       </div>
 
+      {/* Quick Start Tips */}
+      {!hasSearched && (
+        <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+          <div className="flex items-start gap-3">
+            <AlertCircle size={20} className="text-blue-600 dark:text-blue-400 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-blue-800 dark:text-blue-300">Quick Start Tips</h3>
+              <ul className="text-blue-700 dark:text-blue-400 text-sm mt-1 space-y-1">
+                <li>• Start by searching without filters to see all available teammates</li>
+                <li>• Add specific skills you're looking for to find more targeted matches</li>
+                <li>• Lower the minimum compatibility score if you're not finding enough results</li>
+                <li>• Try the "Add Demo Skills" button if the database seems empty</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Search and Filters */}
       <div className="card-elevated p-6 mb-8">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-navy-900 dark:text-white">Search Filters</h2>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="btn btn-secondary"
-          >
-            <Filter size={18} className="mr-2" />
-            {showFilters ? 'Hide Filters' : 'Show Filters'}
-            {showFilters ? <ChevronUp size={18} className="ml-2" /> : <ChevronDown size={18} className="ml-2" />}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={clearFilters}
+              className="btn btn-secondary text-sm"
+            >
+              <RefreshCw size={16} />
+              Clear Filters
+            </button>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="btn btn-secondary"
+            >
+              <Filter size={18} className="mr-2" />
+              {showFilters ? 'Hide Filters' : 'Show Filters'}
+              {showFilters ? <ChevronUp size={18} className="ml-2" /> : <ChevronDown size={18} className="ml-2" />}
+            </button>
+          </div>
         </div>
 
         {showFilters && (
           <div className="space-y-6">
             {/* Role Selection */}
             <div>
-              <label className="form-label mb-3">Looking for roles:</label>
+              <label className="form-label mb-3">Looking for roles (optional):</label>
               <div className="flex flex-wrap gap-2">
                 {['developer', 'organizer', 'company'].map(role => (
                   <button
@@ -225,7 +285,7 @@ const TeamMatching = () => {
 
             {/* Skill Categories */}
             <div>
-              <label className="form-label mb-3">Required skills:</label>
+              <label className="form-label mb-3">Required skills (optional):</label>
               
               {/* Skill Search */}
               <div className="relative mb-4">
@@ -263,7 +323,7 @@ const TeamMatching = () => {
 
               {/* Skill Categories */}
               <div className="space-y-3">
-                {skillCategories.map(category => (
+                {skillCategories.slice(0, 5).map(category => (
                   <div key={category.name} className="border border-navy-200 dark:border-navy-700 rounded-xl overflow-hidden">
                     <button
                       onClick={() => toggleCategory(category.name)}
@@ -289,7 +349,7 @@ const TeamMatching = () => {
                     {expandedCategories.has(category.name) && (
                       <div className="p-4 bg-white dark:bg-navy-900">
                         <div className="flex flex-wrap gap-2">
-                          {category.skills.map(skill => (
+                          {category.skills.slice(0, 12).map(skill => (
                             <button
                               key={skill}
                               onClick={() => handleSkillToggle(skill)}
@@ -302,6 +362,11 @@ const TeamMatching = () => {
                               {skill}
                             </button>
                           ))}
+                          {category.skills.length > 12 && (
+                            <span className="text-sm text-navy-500 dark:text-navy-400 px-3 py-1">
+                              +{category.skills.length - 12} more...
+                            </span>
+                          )}
                         </div>
                       </div>
                     )}
@@ -333,41 +398,6 @@ const TeamMatching = () => {
               </div>
             )}
 
-            {/* MMR Range */}
-            <div>
-              <label className="form-label mb-3">MMR Range:</label>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm text-navy-600 dark:text-navy-300">Min MMR</label>
-                  <input
-                    type="number"
-                    value={filters.mmrRange[0]}
-                    onChange={(e) => setFilters(prev => ({
-                      ...prev,
-                      mmrRange: [parseInt(e.target.value) || 0, prev.mmrRange[1]]
-                    }))}
-                    className="input w-full"
-                    min="0"
-                    max="10000"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-navy-600 dark:text-navy-300">Max MMR</label>
-                  <input
-                    type="number"
-                    value={filters.mmrRange[1]}
-                    onChange={(e) => setFilters(prev => ({
-                      ...prev,
-                      mmrRange: [prev.mmrRange[0], parseInt(e.target.value) || 10000]
-                    }))}
-                    className="input w-full"
-                    min="0"
-                    max="10000"
-                  />
-                </div>
-              </div>
-            </div>
-
             {/* Location */}
             <div>
               <label className="form-label">Location (optional):</label>
@@ -396,9 +426,21 @@ const TeamMatching = () => {
                 onChange={(e) => setFilters(prev => ({ ...prev, minCompatibility: parseInt(e.target.value) }))}
                 className="w-full h-2 bg-navy-200 dark:bg-navy-700 rounded-lg appearance-none cursor-pointer"
               />
+              <div className="flex justify-between text-xs text-navy-500 dark:text-navy-400 mt-1">
+                <span>0%</span>
+                <span>50%</span>
+                <span>100%</span>
+              </div>
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex justify-between">
+              <button
+                onClick={addDemoSkills}
+                className="btn bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                Add Demo Skills
+              </button>
+              
               <button
                 onClick={searchTeammates}
                 disabled={isLoading}
@@ -439,18 +481,41 @@ const TeamMatching = () => {
             <div className="spinner mx-auto mb-4"></div>
             <p className="text-navy-600 dark:text-navy-300">Searching for compatible teammates...</p>
           </div>
-        ) : matchedUsers.length === 0 ? (
+        ) : matchedUsers.length === 0 && hasSearched ? (
           <div className="card p-8 text-center">
             <Users size={48} className="mx-auto text-navy-400 dark:text-navy-500 mb-4" />
             <h3 className="text-lg font-medium text-navy-900 dark:text-white mb-2">No matches found</h3>
             <p className="text-navy-600 dark:text-navy-300 mb-6">
-              Try adjusting your filters or expanding your skill requirements to find more teammates.
+              Try adjusting your filters, lowering the minimum compatibility score, or searching without any filters.
+            </p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={clearFilters}
+                className="btn btn-secondary"
+              >
+                Clear All Filters
+              </button>
+              <button
+                onClick={() => setFilters(prev => ({ ...prev, minCompatibility: 20 }))}
+                className="btn btn-primary"
+              >
+                Lower Compatibility to 20%
+              </button>
+            </div>
+          </div>
+        ) : !hasSearched ? (
+          <div className="card p-8 text-center">
+            <Target size={48} className="mx-auto text-navy-400 dark:text-navy-500 mb-4" />
+            <h3 className="text-lg font-medium text-navy-900 dark:text-white mb-2">Ready to find teammates?</h3>
+            <p className="text-navy-600 dark:text-navy-300 mb-6">
+              Click "Find Teammates" to start searching for compatible developers to work with.
             </p>
             <button
-              onClick={() => setShowFilters(true)}
+              onClick={searchTeammates}
               className="btn btn-primary"
             >
-              Adjust Filters
+              <Target size={18} />
+              Find Teammates
             </button>
           </div>
         ) : (
@@ -545,6 +610,30 @@ const TeamMatching = () => {
                       </div>
                     )}
 
+                    {/* User Skills */}
+                    {matchedUser.user_skills && matchedUser.user_skills.length > 0 && (
+                      <div className="mb-4">
+                        <h4 className="text-sm font-medium text-navy-700 dark:text-navy-300 mb-2">
+                          All Skills:
+                        </h4>
+                        <div className="flex flex-wrap gap-1">
+                          {matchedUser.user_skills.slice(0, 4).map((userSkill: any) => (
+                            <span
+                              key={userSkill.skill.id}
+                              className="text-xs bg-navy-100 dark:bg-navy-800 text-navy-700 dark:text-navy-300 px-2 py-1 rounded-full"
+                            >
+                              {userSkill.skill.name}
+                            </span>
+                          ))}
+                          {matchedUser.user_skills.length > 4 && (
+                            <span className="text-xs bg-navy-100 dark:bg-navy-800 text-navy-600 dark:text-navy-300 px-2 py-1 rounded-full">
+                              +{matchedUser.user_skills.length - 4} more
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Social Links */}
                     <div className="flex items-center gap-2 mb-4">
                       {matchedUser.github_url && (
@@ -584,6 +673,7 @@ const TeamMatching = () => {
                       <button
                         onClick={() => {
                           setSelectedUser(matchedUser);
+                          setTeamUpMessage(`Hi ${matchedUser.name}! I'd love to team up with you for upcoming hackathons. Your skills would be perfect for our team!`);
                           setShowTeamUpModal(true);
                         }}
                         className="btn btn-primary flex-1 text-sm py-2"
@@ -644,7 +734,7 @@ const TeamMatching = () => {
                   onChange={(e) => setTeamUpMessage(e.target.value)}
                   rows={4}
                   className="input w-full resize-none"
-                  placeholder="Hi! I'd love to team up with you for upcoming hackathons. Your skills in [mention specific skills] would be perfect for our team!"
+                  placeholder="Hi! I'd love to team up with you for upcoming hackathons. Your skills would be perfect for our team!"
                 />
               </div>
 
