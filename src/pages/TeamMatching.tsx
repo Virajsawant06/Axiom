@@ -32,29 +32,29 @@ const TeamMatching = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [compatibilityScores, setCompatibilityScores] = useState<CompatibilityScore[]>([]);
   const [matchedUsers, setMatchedUsers] = useState<any[]>([]);
-  const [showFilters, setShowFilters] = useState(true); // Start with filters open
+  const [showFilters, setShowFilters] = useState(true);
   const [showTeamUpModal, setShowTeamUpModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [teamUpMessage, setTeamUpMessage] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
+  const [isSendingRequest, setIsSendingRequest] = useState(false);
   
   const [filters, setFilters] = useState<SearchFilters>({
     roles: [],
     skills: [],
     mmrRange: [0, 10000],
     location: '',
-    minCompatibility: 30 // Lowered from 50 to 30 for more results
+    minCompatibility: 30
   });
 
   const [skillSearch, setSkillSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['Frontend', 'Backend'])); // Start with some categories expanded
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['Frontend', 'Backend']));
 
   const skillCategories = TeamMatchingService.getSkillsByCategory();
   const userTier = user ? MMRService.getTierByMMR(user.ranking) : null;
 
   useEffect(() => {
-    // Auto-search with default filters when component loads
     if (user && !hasSearched) {
       searchTeammates();
     }
@@ -75,7 +75,6 @@ const TeamMatching = () => {
         const userIds = scores.map(score => score.userId);
         const users = await TeamMatchingService.getMatchedUsersDetails(userIds);
         
-        // Merge compatibility scores with user details
         const mergedData = scores.map(score => {
           const userData = users.find(u => u.id === score.userId);
           return { ...userData, compatibility: score };
@@ -137,9 +136,22 @@ const TeamMatching = () => {
     });
   };
 
-  const sendTeamUpRequest = async () => {
-    if (!selectedUser || !teamUpMessage.trim()) return;
+  const openTeamUpModal = (matchedUser: any) => {
+    setSelectedUser(matchedUser);
+    setTeamUpMessage(`Hi ${matchedUser.name}! I'd love to team up with you for upcoming hackathons. Your skills would be perfect for our team!`);
+    setShowTeamUpModal(true);
+  };
 
+  const closeTeamUpModal = () => {
+    setShowTeamUpModal(false);
+    setSelectedUser(null);
+    setTeamUpMessage('');
+  };
+
+  const sendTeamUpRequest = async () => {
+    if (!selectedUser || !teamUpMessage.trim() || isSendingRequest) return;
+
+    setIsSendingRequest(true);
     try {
       await MMRService.sendTeamUpRequest(
         selectedUser.id,
@@ -147,13 +159,13 @@ const TeamMatching = () => {
         filters.skills
       );
 
-      setShowTeamUpModal(false);
-      setSelectedUser(null);
-      setTeamUpMessage('');
+      closeTeamUpModal();
       showSuccess('Team-up request sent!', `Your request has been sent to ${selectedUser.name}.`);
     } catch (error) {
       console.error('Error sending team-up request:', error);
       showError('Failed to send request', 'Something went wrong. Please try again.');
+    } finally {
+      setIsSendingRequest(false);
     }
   };
 
@@ -671,11 +683,7 @@ const TeamMatching = () => {
                     {/* Action Buttons */}
                     <div className="flex gap-2">
                       <button
-                        onClick={() => {
-                          setSelectedUser(matchedUser);
-                          setTeamUpMessage(`Hi ${matchedUser.name}! I'd love to team up with you for upcoming hackathons. Your skills would be perfect for our team!`);
-                          setShowTeamUpModal(true);
-                        }}
+                        onClick={() => openTeamUpModal(matchedUser)}
                         className="btn btn-primary flex-1 text-sm py-2"
                       >
                         <UserPlus size={14} />
@@ -696,23 +704,31 @@ const TeamMatching = () => {
         )}
       </div>
 
-      {/* Team Up Modal */}
+      {/* Team Up Modal - Fixed positioning and z-index */}
       {showTeamUpModal && selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowTeamUpModal(false)}></div>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm" 
+            onClick={closeTeamUpModal}
+          ></div>
           
-          <div className="relative w-full max-w-md card-elevated animate-scale-in">
+          {/* Modal Content */}
+          <div className="relative w-full max-w-md bg-white dark:bg-navy-900 rounded-3xl shadow-xl border border-navy-100 dark:border-navy-800 animate-scale-in z-[10000]">
+            {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-navy-200 dark:border-navy-800">
               <h2 className="text-xl font-bold text-navy-900 dark:text-white">Send Team-Up Request</h2>
               <button
-                onClick={() => setShowTeamUpModal(false)}
+                onClick={closeTeamUpModal}
                 className="p-2 rounded-xl text-navy-500 dark:text-navy-400 hover:bg-navy-100 dark:hover:bg-navy-800 transition-colors"
               >
                 <X size={20} />
               </button>
             </div>
 
+            {/* Content */}
             <div className="p-6">
+              {/* User Info */}
               <div className="flex items-center gap-3 mb-4">
                 <img
                   src={selectedUser.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedUser.name)}&background=6366f1&color=fff`}
@@ -727,6 +743,7 @@ const TeamMatching = () => {
                 </div>
               </div>
 
+              {/* Message Input */}
               <div className="mb-4">
                 <label className="form-label">Message:</label>
                 <textarea
@@ -738,6 +755,7 @@ const TeamMatching = () => {
                 />
               </div>
 
+              {/* Skills Preview */}
               {filters.skills.length > 0 && (
                 <div className="mb-4">
                   <label className="form-label mb-2">Skills we're looking for:</label>
@@ -754,20 +772,31 @@ const TeamMatching = () => {
                 </div>
               )}
 
+              {/* Action Buttons */}
               <div className="flex gap-3">
                 <button
-                  onClick={() => setShowTeamUpModal(false)}
+                  onClick={closeTeamUpModal}
                   className="btn btn-secondary flex-1"
+                  disabled={isSendingRequest}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={sendTeamUpRequest}
-                  disabled={!teamUpMessage.trim()}
+                  disabled={!teamUpMessage.trim() || isSendingRequest}
                   className="btn btn-primary flex-1"
                 >
-                  <Send size={18} />
-                  Send Request
+                  {isSendingRequest ? (
+                    <div className="flex items-center justify-center">
+                      <div className="spinner mr-2"></div>
+                      Sending...
+                    </div>
+                  ) : (
+                    <>
+                      <Send size={18} />
+                      Send Request
+                    </>
+                  )}
                 </button>
               </div>
             </div>
