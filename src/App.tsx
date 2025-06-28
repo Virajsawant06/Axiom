@@ -10,6 +10,7 @@ import Profile from './pages/Profile';
 import Hackathons from './pages/Hackathons';
 import HackathonDetails from './pages/HackathonDetails';
 import Teams from './pages/Teams';
+import TeamMatching from './pages/TeamMatching';
 import Messages from './pages/Messages';
 import Settings from './pages/Settings';
 import OrganizerPanel from './pages/OrganizerPanel';
@@ -86,6 +87,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <Teams />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/team-matching" 
+                  element={
+                    <ProtectedRoute>
+                      <TeamMatching />
                     </ProtectedRoute>
                   } 
                 />

@@ -5,7 +5,8 @@ import {
   Trophy, 
   Users, 
   MessageSquare, 
-  User
+  User,
+  Target
 } from 'lucide-react';
 
 const BottomNav = () => {
@@ -15,6 +16,7 @@ const BottomNav = () => {
     { to: '/dashboard', icon: <Home size={20} />, label: 'Home' },
     { to: '/hackathons', icon: <Trophy size={20} />, label: 'Events' },
     { to: '/teams', icon: <Users size={20} />, label: 'Teams' },
+    { to: '/team-matching', icon: <Target size={20} />, label: 'Match' },
     { to: '/messages', icon: <MessageSquare size={20} />, label: 'Chat' },
     { to: `/profile/${user?.id}`, icon: <User size={20} />, label: 'Profile' },
   ];

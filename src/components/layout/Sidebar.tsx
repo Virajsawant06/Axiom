@@ -11,7 +11,8 @@ import {
   ChevronRight,
   Hash,
   Sparkles,
-  PlusCircle
+  PlusCircle,
+  Target
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -26,6 +27,7 @@ const Sidebar = ({ isOpen, toggleSidebar }: SidebarProps) => {
     { to: '/dashboard', text: 'Home', icon: <Home size={20} /> },
     { to: '/hackathons', text: 'Hackathons', icon: <Trophy size={20} /> },
     { to: '/teams', text: 'Teams', icon: <Users size={20} /> },
+    { to: '/team-matching', text: 'Find Teammates', icon: <Target size={20} /> },
     { to: '/projects', text: 'Projects', icon: <Code size={20} /> },
     { to: '/messages', text: 'Messages', icon: <MessageSquare size={20} /> },
     ...(user?.role === 'organizer' ? [{ to: '/organizer', text: 'Organizer Panel', icon: <PlusCircle size={20} /> }] : []),
