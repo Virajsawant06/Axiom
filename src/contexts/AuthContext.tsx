@@ -1,15 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { createClient, SupabaseClient, User as SupabaseUser } from '@supabase/supabase-js';
-
-// Initialize Supabase client
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
-}
-
-export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+import { User as SupabaseUser } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
 
 export type UserRole = 'developer' | 'organizer' | 'company' | 'admin';
 
@@ -413,3 +404,6 @@ export function useAuth() {
   }
   return context;
 }
+
+// Re-export supabase for backward compatibility
+export { supabase };
