@@ -13,6 +13,7 @@ import Teams from './pages/Teams';
 import TeamMatching from './pages/TeamMatching';
 import Messages from './pages/Messages';
 import Settings from './pages/Settings';
+import MMRDebug from './pages/MMRDebug';
 import OrganizerPanel from './pages/OrganizerPanel';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
@@ -111,6 +112,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <Settings />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/mmr-debug" 
+                  element={
+                    <ProtectedRoute>
+                      <MMRDebug />
                     </ProtectedRoute>
                   } 
                 />
