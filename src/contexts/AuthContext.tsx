@@ -72,6 +72,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   };
 
+  const generateUniqueHashtag = async (username: string): Promise<string> => {
+    for (let i = 0; i < 10; i++) {
+      const hashtag = Math.floor(1000 + Math.random() * 9000).toString();
+      const { data } = await supabase
+        .from('users')
+        .select('id')
+        .eq('username', username)
+        .eq('hashtag', hashtag)
+        .maybeSingle();
+      
+      if (!data) {
+        return hashtag;
+      }
+    }
+    return '0000';
+  };
+
   const fetchUserProfile = async (userId: string): Promise<User | null> => {
     try {
       const { data: userProfile, error: profileError } = await supabase
@@ -135,6 +152,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (authError && !authError.message.includes('already registered')) {
           console.error('Error creating demo user:', authError);
+        }
+
+        // If auth user was created successfully, create the profile in public.users
+        if (authData?.user && !authError) {
+          try {
+            const { error: profileError } = await supabase
+              .from('users')
+              .upsert({
+                id: authData.user.id,
+                email: 'demo@axiom.dev',
+                name: 'Alex Johnson',
+                username: 'demo_user',
+                hashtag: '0001',
+                bio: 'Full-stack developer passionate about creating meaningful tech solutions.',
+                location: 'San Francisco, CA',
+                github_url: 'github.com/demo_user',
+                linkedin_url: 'linkedin.com/in/demo_user',
+                website_url: 'https://demo-user.dev',
+                role: 'developer',
+                verified: true,
+                ranking: 2100,
+                github_repos_count: 15,
+                hackathons_participated: 8,
+                hackathons_top50_percent: 6,
+                hackathons_top10_percent: 3,
+                hackathons_first_place: 1
+              }, {
+                onConflict: 'id'
+              });
+
+            if (profileError) {
+              console.error('Error creating demo user profile:', profileError);
+            }
+          } catch (profileError) {
+            console.error('Error inserting demo user profile:', profileError);
+          }
         }
 
         // Sign out after creating the demo user
@@ -256,6 +309,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
 
       if (data.user) {
+        // Generate a unique hashtag for the user
+        const hashtag = await generateUniqueHashtag(userData.username || '');
+
+        // Create the user profile in public.users table
+        try {
+          const { error: profileError } = await supabase
+            .from('users')
+            .insert({
+              id: data.user.id,
+              email: userData.email!,
+              name: userData.name || '',
+              username: userData.username || '',
+              hashtag: hashtag,
+              bio: userData.bio || '',
+              location: userData.location || '',
+              github_url: userData.github || '',
+              linkedin_url: userData.linkedin || '',
+              website_url: userData.website || '',
+              role: userData.role || 'developer',
+              verified: false,
+              ranking: 0,
+              github_repos_count: 0,
+              hackathons_participated: 0,
+              hackathons_top50_percent: 0,
+              hackathons_top10_percent: 0,
+              hackathons_first_place: 0
+            });
+
+          if (profileError) {
+            console.error('Error creating user profile:', profileError);
+          }
+        } catch (profileError) {
+          console.error('Error inserting user profile:', profileError);
+        }
+
+        // Wait a bit and then fetch the user profile
         let retries = 0;
         const maxRetries = 10;
         let userProfile = null;
@@ -274,7 +363,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             email: data.user.email!,
             name: userData.name || '',
             username: userData.username || '',
-            hashtag: '0000',
+            hashtag: hashtag,
             avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.name || 'User')}&background=6366f1&color=fff`,
             role: userData.role || 'developer',
             verified: false,
