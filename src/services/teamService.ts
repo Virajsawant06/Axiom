@@ -121,7 +121,7 @@ export class TeamService {
     if (error) throw error
   }
 
-  // Get user's teams
+  // Get user's teams - Fixed to avoid infinite recursion
   static async getUserTeams(userId: string) {
     const { data, error } = await supabase
       .from('team_members')
@@ -134,10 +134,7 @@ export class TeamService {
           description,
           avatar_url,
           looking_for_members,
-          created_at,
-          team_members(
-            user:users(id, name, avatar_url)
-          )
+          created_at
         )
       `)
       .eq('user_id', userId)
@@ -149,6 +146,23 @@ export class TeamService {
       user_role: item.role,
       joined_at: item.joined_at
     })) || []
+  }
+
+  // Get team members separately to avoid recursion
+  static async getTeamMembers(teamId: string) {
+    const { data, error } = await supabase
+      .from('team_members')
+      .select(`
+        id,
+        role,
+        joined_at,
+        user:users(id, name, avatar_url, verified)
+      `)
+      .eq('team_id', teamId)
+      .order('joined_at', { ascending: true })
+
+    if (error) throw error
+    return data || []
   }
 
   // Send team invite
