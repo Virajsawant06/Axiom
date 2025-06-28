@@ -1,19 +1,24 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Link } from 'react-router-dom';
-import { Trophy, Users, Calendar, ArrowRight, User, GitBranch, Star, Code, Github } from 'lucide-react';
+import { Trophy, Users, Calendar, ArrowRight, User, GitBranch, Star, Code, Github, Zap } from 'lucide-react';
 import { HackathonService } from '../services/hackathonService';
 import { GitHubService, GitHubRepo } from '../services/githubService';
+import { GitHubMMRService } from '../services/githubMMRService';
 import { TeamService } from '../services/teamService';
+import { MMRService } from '../services/mmrService';
+import { useToast } from '../contexts/ToastContext';
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const { showSuccess, showError } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const [hackathons, setHackathons] = useState<any[]>([]);
   const [userTeams, setUserTeams] = useState<any[]>([]);
   const [githubRepos, setGithubRepos] = useState<GitHubRepo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadingRepos, setLoadingRepos] = useState(false);
+  const [syncingGitHub, setSyncingGitHub] = useState(false);
   
   useEffect(() => {
     loadHackathons();
@@ -65,8 +70,38 @@ const Dashboard = () => {
       setLoadingRepos(false);
     }
   };
+
+  const syncGitHubMMR = async () => {
+    if (!user) return;
+
+    setSyncingGitHub(true);
+    try {
+      const result = await GitHubMMRService.updateUserGitHubStats(user.id);
+      showSuccess(
+        'GitHub stats synced!', 
+        `Found ${result.repoCount} repositories. Your MMR has been updated.`
+      );
+      
+      // Reload GitHub repos to show updated count
+      if (activeTab === 'projects') {
+        await loadGitHubRepos();
+      }
+    } catch (error: any) {
+      console.error('Error syncing GitHub stats:', error);
+      if (error.message.includes('No GitHub profile')) {
+        showError(
+          'No GitHub profile found', 
+          'Please add your GitHub URL to your profile settings first.'
+        );
+      } else {
+        showError('Failed to sync GitHub stats', 'Please try again later.');
+      }
+    } finally {
+      setSyncingGitHub(false);
+    }
+  };
   
-  // Mock user stats
+  // User stats with real GitHub data
   const userStats = {
     hackathonsJoined: 4,
     teamsFormed: userTeams.length,
@@ -74,6 +109,8 @@ const Dashboard = () => {
     currentRanking: user?.ranking || 0,
     rankPercentile: 'Top 10%',
   };
+
+  const userTier = user ? MMRService.getTierByMMR(user.ranking) : null;
   
   // Mock activity feed
   const activityFeed = [
@@ -115,6 +152,37 @@ const Dashboard = () => {
         <p className="text-gray-600 dark:text-gray-300 mt-2">
           Here's what's happening in your developer world
         </p>
+        
+        {/* MMR Display */}
+        {userTier && (
+          <div className="mt-4 flex items-center gap-3">
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl" style={{ backgroundColor: `${userTier.color}20` }}>
+              <span className="text-lg">{userTier.icon}</span>
+              <span className="font-semibold" style={{ color: userTier.color }}>
+                {userTier.name} ({user?.ranking} MMR)
+              </span>
+            </div>
+            {user?.github && (
+              <button
+                onClick={syncGitHubMMR}
+                disabled={syncingGitHub}
+                className="btn btn-secondary text-sm"
+              >
+                {syncingGitHub ? (
+                  <div className="flex items-center">
+                    <div className="spinner mr-2"></div>
+                    Syncing...
+                  </div>
+                ) : (
+                  <>
+                    <Zap size={16} />
+                    Sync MMR
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        )}
       </div>
       
       {/* Stats Overview */}
@@ -146,7 +214,7 @@ const Dashboard = () => {
         <div className="card p-6">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Projects Completed</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">GitHub Projects</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{userStats.projectsCompleted}</p>
             </div>
             <div className="bg-axiom-100 dark:bg-axiom-800 p-3 rounded-lg">
@@ -371,17 +439,38 @@ const Dashboard = () => {
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">
               GitHub Projects
             </h2>
-            {user?.github && (
-              <a
-                href={`https://${user.github}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn btn-secondary text-sm"
-              >
-                <Github size={16} className="mr-2" />
-                View GitHub Profile
-              </a>
-            )}
+            <div className="flex items-center gap-3">
+              {user?.github && (
+                <button
+                  onClick={syncGitHubMMR}
+                  disabled={syncingGitHub}
+                  className="btn btn-secondary text-sm"
+                >
+                  {syncingGitHub ? (
+                    <div className="flex items-center">
+                      <div className="spinner mr-2"></div>
+                      Syncing...
+                    </div>
+                  ) : (
+                    <>
+                      <Zap size={16} />
+                      Sync MMR
+                    </>
+                  )}
+                </button>
+              )}
+              {user?.github && (
+                <a
+                  href={`https://${user.github}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-secondary text-sm"
+                >
+                  <Github size={16} className="mr-2" />
+                  View GitHub Profile
+                </a>
+              )}
+            </div>
           </div>
 
           {!user?.github ? (
@@ -389,7 +478,7 @@ const Dashboard = () => {
               <Github size={48} className="mx-auto text-gray-400 dark:text-gray-500 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No GitHub Profile</h3>
               <p className="text-gray-600 dark:text-gray-300 mb-4">
-                Connect your GitHub profile to showcase your projects here.
+                Connect your GitHub profile to showcase your projects here and get accurate MMR.
               </p>
               <Link to="/settings" className="btn btn-primary">
                 Connect GitHub
