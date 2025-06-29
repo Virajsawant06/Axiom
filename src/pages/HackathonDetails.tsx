@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Calendar, MapPin, Trophy, Users, Clock, ArrowLeft, Share2, Heart, MessageSquare, UserPlus, X, AlertCircle } from 'lucide-react';
+import { Calendar, MapPin, Trophy, Users, Clock, ArrowLeft, Share2, Heart, MessageSquare, UserPlus, X, AlertCircle, Github, ExternalLink, Upload } from 'lucide-react';
 import { HackathonService } from '../services/hackathonService';
+import { SubmissionService } from '../services/submissionService';
+import { TeamService } from '../services/teamService';
 import { EmailService } from '../services/emailService';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../contexts/ToastContext';
-import UserCard from '../components/ui/UserCard';
+import SubmissionModal from '../components/hackathon/SubmissionModal';
+import SubmissionCard from '../components/hackathon/SubmissionCard';
 
 const HackathonDetails = () => {
   const { hackathonId } = useParams<{ hackathonId: string }>();
@@ -16,6 +19,14 @@ const HackathonDetails = () => {
   const [hackathon, setHackathon] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+  const [showSubmissionModal, setShowSubmissionModal] = useState(false);
+  const [isRegistered, setIsRegistered] = useState(false);
+  const [userRegistration, setUserRegistration] = useState<any>(null);
+  const [userTeam, setUserTeam] = useState<any>(null);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [userSubmission, setUserSubmission] = useState<any>(null);
+  const [submissions, setSubmissions] = useState<any[]>([]);
+  
   const [registrationData, setRegistrationData] = useState({
     username: '',
     hashtag: '',
@@ -26,8 +37,24 @@ const HackathonDetails = () => {
   useEffect(() => {
     if (hackathonId) {
       loadHackathon();
+      if (user) {
+        checkRegistrationStatus();
+        loadUserTeam();
+      }
     }
-  }, [hackathonId]);
+  }, [hackathonId, user]);
+
+  useEffect(() => {
+    if (user && hackathon && isRegistered) {
+      checkSubmissionStatus();
+    }
+  }, [user, hackathon, isRegistered]);
+
+  useEffect(() => {
+    if (activeTab === 'submissions') {
+      loadSubmissions();
+    }
+  }, [activeTab]);
 
   const loadHackathon = async () => {
     if (!hackathonId) return;
@@ -41,6 +68,72 @@ const HackathonDetails = () => {
       showError('Hackathon not found', 'The hackathon you are looking for does not exist.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const checkRegistrationStatus = async () => {
+    if (!user || !hackathonId) return;
+
+    try {
+      const registrations = await HackathonService.getUserRegistrations(user.id);
+      const registration = registrations.find(r => r.hackathon_id === hackathonId);
+      
+      if (registration) {
+        setIsRegistered(true);
+        setUserRegistration(registration);
+      }
+    } catch (error) {
+      console.error('Error checking registration status:', error);
+    }
+  };
+
+  const loadUserTeam = async () => {
+    if (!user) return;
+
+    try {
+      const teams = await TeamService.getUserTeams(user.id);
+      // Find team associated with this hackathon
+      const hackathonTeam = teams.find(team => team.hackathon_id === hackathonId);
+      if (hackathonTeam) {
+        setUserTeam(hackathonTeam);
+      }
+    } catch (error) {
+      console.error('Error loading user team:', error);
+    }
+  };
+
+  const checkSubmissionStatus = async () => {
+    if (!user || !hackathonId) return;
+
+    try {
+      const submitted = await SubmissionService.hasUserSubmitted(
+        hackathonId, 
+        user.id, 
+        userTeam?.id
+      );
+      setHasSubmitted(submitted);
+
+      if (submitted) {
+        const submission = await SubmissionService.getUserSubmission(
+          hackathonId,
+          user.id,
+          userTeam?.id
+        );
+        setUserSubmission(submission);
+      }
+    } catch (error) {
+      console.error('Error checking submission status:', error);
+    }
+  };
+
+  const loadSubmissions = async () => {
+    if (!hackathonId) return;
+
+    try {
+      const data = await SubmissionService.getHackathonSubmissions(hackathonId);
+      setSubmissions(data);
+    } catch (error) {
+      console.error('Error loading submissions:', error);
     }
   };
 
@@ -97,6 +190,8 @@ const HackathonDetails = () => {
       
       setShowRegistrationModal(false);
       setRegistrationData({ username: '', hashtag: '', teamMembers: [''] });
+      setIsRegistered(true);
+      checkRegistrationStatus();
     } catch (error: any) {
       console.error('Error registering for hackathon:', error);
       if (error.message?.includes('duplicate key')) {
@@ -151,6 +246,14 @@ const HackathonDetails = () => {
     }));
   };
 
+  const handleSubmissionSuccess = () => {
+    setHasSubmitted(true);
+    checkSubmissionStatus();
+    if (activeTab === 'submissions') {
+      loadSubmissions();
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="max-w-4xl mx-auto text-center py-16">
@@ -193,6 +296,11 @@ const HackathonDetails = () => {
       year: 'numeric'
     });
   };
+
+  // Check if hackathon is active (between start and end date)
+  const endDate = new Date(hackathon.end_date);
+  const isActive = today >= startDate && today <= endDate;
+  const hasEnded = today > endDate;
   
   return (
     <div className="max-w-7xl mx-auto">
@@ -219,8 +327,10 @@ const HackathonDetails = () => {
           <div className="flex flex-col md:flex-row md:items-end justify-between">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">
-                  {hackathon.status === 'upcoming' ? 'Upcoming' : 'Active'}
+                <span className={`text-white text-xs px-2 py-1 rounded-full ${
+                  hasEnded ? 'bg-gray-500' : isActive ? 'bg-green-500' : 'bg-blue-500'
+                }`}>
+                  {hasEnded ? 'Ended' : isActive ? 'Active' : 'Upcoming'}
                 </span>
                 <span className="bg-axiom-100 dark:bg-axiom-800 text-axiom-800 dark:text-axiom-300 text-xs px-2 py-1 rounded-full">
                   {hackathon.location}
@@ -242,16 +352,62 @@ const HackathonDetails = () => {
               <button className="btn bg-white/10 text-white backdrop-blur-sm hover:bg-white/20">
                 <Heart size={18} />
               </button>
-              <button 
-                onClick={() => setShowRegistrationModal(true)}
-                className="btn bg-axiom-500 text-white"
-              >
-                Register Now
-              </button>
+              
+              {/* Dynamic Action Button */}
+              {!isRegistered ? (
+                <button 
+                  onClick={() => setShowRegistrationModal(true)}
+                  disabled={hasEnded || daysLeft < 0}
+                  className="btn bg-axiom-500 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {hasEnded ? 'Registration Closed' : daysLeft < 0 ? 'Registration Ended' : 'Register Now'}
+                </button>
+              ) : hasSubmitted ? (
+                <div className="flex items-center gap-2 bg-green-500/20 text-white px-4 py-2 rounded-xl backdrop-blur-sm">
+                  <Upload size={18} />
+                  <span>Project Submitted</span>
+                </div>
+              ) : isActive ? (
+                <button 
+                  onClick={() => setShowSubmissionModal(true)}
+                  className="btn bg-green-500 text-white"
+                >
+                  <Upload size={18} />
+                  Submit Project
+                </button>
+              ) : (
+                <div className="flex items-center gap-2 bg-blue-500/20 text-white px-4 py-2 rounded-xl backdrop-blur-sm">
+                  <span>Registered</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
+      
+      {/* Participant Status Banner */}
+      {isRegistered && (
+        <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+            <div>
+              <p className="font-medium text-blue-800 dark:text-blue-300">
+                You are registered for this hackathon
+              </p>
+              {userTeam && (
+                <p className="text-sm text-blue-700 dark:text-blue-400">
+                  Team: {userTeam.name}
+                </p>
+              )}
+              {hasSubmitted && userSubmission && (
+                <p className="text-sm text-blue-700 dark:text-blue-400">
+                  Project submitted: {userSubmission.project?.name}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Stats Bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
@@ -276,11 +432,17 @@ const HackathonDetails = () => {
               <Clock size={18} className="text-axiom-600 dark:text-axiom-400" />
             </div>
             <div className="ml-3">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Starts In</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {hasEnded ? 'Ended' : isActive ? 'Time Left' : 'Starts In'}
+              </p>
               <p className="font-medium text-gray-900 dark:text-white">
-                {daysUntilStart > 0 
-                  ? `${daysUntilStart} days` 
-                  : 'Started'
+                {hasEnded 
+                  ? 'Completed' 
+                  : isActive 
+                    ? `${Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))} days`
+                    : daysUntilStart > 0 
+                      ? `${daysUntilStart} days` 
+                      : 'Started'
                 }
               </p>
             </div>
@@ -320,7 +482,7 @@ const HackathonDetails = () => {
       <div className="mt-8">
         <div className="border-b border-gray-200 dark:border-axiom-800">
           <nav className="flex space-x-8">
-            {['overview', 'teams', 'discussions'].map((tab) => (
+            {['overview', 'teams', 'submissions'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -423,18 +585,20 @@ const HackathonDetails = () => {
               )}
               
               {/* Need a Team? */}
-              <div className="card p-6 bg-gradient-to-br from-axiom-500 to-axiom-600 text-white">
-                <h3 className="text-lg font-bold mb-2">
-                  Need a team?
-                </h3>
-                <p className="text-axiom-100 mb-4">
-                  Axiom can help you find the perfect teammates based on skills and interests
-                </p>
-                <button className="btn bg-white text-axiom-600 hover:bg-axiom-50 w-full">
-                  <UserPlus size={18} className="mr-2" />
-                  Find Teammates
-                </button>
-              </div>
+              {isRegistered && !userTeam && (
+                <div className="card p-6 bg-gradient-to-br from-axiom-500 to-axiom-600 text-white">
+                  <h3 className="text-lg font-bold mb-2">
+                    Need a team?
+                  </h3>
+                  <p className="text-axiom-100 mb-4">
+                    Axiom can help you find the perfect teammates based on skills and interests
+                  </p>
+                  <Link to="/team-matching" className="btn bg-white text-axiom-600 hover:bg-axiom-50 w-full">
+                    <UserPlus size={18} className="mr-2" />
+                    Find Teammates
+                  </Link>
+                </div>
+              )}
               
               {/* Tags */}
               <div className="card p-6">
@@ -456,7 +620,7 @@ const HackathonDetails = () => {
           </div>
         )}
         
-        {/* Other tabs */}
+        {/* Teams Tab */}
         {activeTab === 'teams' && (
           <div className="text-center py-16">
             <div className="bg-gray-100 dark:bg-axiom-800 h-16 w-16 flex items-center justify-center rounded-full mx-auto mb-4">
@@ -469,21 +633,47 @@ const HackathonDetails = () => {
           </div>
         )}
         
-        {activeTab === 'discussions' && (
-          <div className="text-center py-16">
-            <div className="bg-gray-100 dark:bg-axiom-800 h-16 w-16 flex items-center justify-center rounded-full mx-auto mb-4">
-              <MessageSquare size={24} className="text-gray-500 dark:text-gray-400" />
+        {/* Submissions Tab */}
+        {activeTab === 'submissions' && (
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                Project Submissions ({submissions.length})
+              </h2>
+              {isRegistered && !hasSubmitted && isActive && (
+                <button 
+                  onClick={() => setShowSubmissionModal(true)}
+                  className="btn btn-primary"
+                >
+                  <Upload size={18} />
+                  Submit Project
+                </button>
+              )}
             </div>
-            <h3 className="text-xl font-medium text-gray-900 dark:text-white mb-2">Join the conversation</h3>
-            <p className="text-gray-600 dark:text-gray-300 max-w-md mx-auto mb-6">
-              Discussions will be available once you register for this hackathon.
-            </p>
-            <button 
-              onClick={() => setShowRegistrationModal(true)}
-              className="btn btn-primary"
-            >
-              Register Now
-            </button>
+
+            {submissions.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="bg-gray-100 dark:bg-axiom-800 h-16 w-16 flex items-center justify-center rounded-full mx-auto mb-4">
+                  <Upload size={24} className="text-gray-500 dark:text-gray-400" />
+                </div>
+                <h3 className="text-xl font-medium text-gray-900 dark:text-white mb-2">No submissions yet</h3>
+                <p className="text-gray-600 dark:text-gray-300">
+                  {isActive 
+                    ? 'Be the first to submit your project!' 
+                    : 'Submissions will appear here once the hackathon starts.'
+                  }
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {submissions.map((submission) => (
+                  <SubmissionCard
+                    key={submission.id}
+                    submission={submission}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -598,6 +788,15 @@ const HackathonDetails = () => {
           </div>
         </div>
       )}
+
+      {/* Submission Modal */}
+      <SubmissionModal
+        isOpen={showSubmissionModal}
+        onClose={() => setShowSubmissionModal(false)}
+        hackathon={hackathon}
+        userTeam={userTeam}
+        onSubmissionSuccess={handleSubmissionSuccess}
+      />
     </div>
   );
 };
