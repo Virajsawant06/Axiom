@@ -69,26 +69,26 @@ const Hackathons = () => {
     });
   };
 
-  // Get tag color based on tag name
+  // Enhanced tag color system with more vibrant colors
   const getTagColor = (tagName: string) => {
     const colors = {
-      'AI': 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300',
-      'Climate': 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300',
-      'FinTech': 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300',
-      'Healthcare': 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300',
-      'Education': 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300',
-      'Gaming': 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300',
-      'Social Impact': 'bg-pink-100 dark:bg-pink-900/30 text-pink-800 dark:text-pink-300',
-      'Blockchain': 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300',
-      'IoT': 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300',
-      'Machine Learning': 'bg-violet-100 dark:bg-violet-900/30 text-violet-800 dark:text-violet-300',
-      'Data': 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-300',
-      'Mobile': 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300',
-      'Web': 'bg-sky-100 dark:bg-sky-900/30 text-sky-800 dark:text-sky-300',
-      'Sustainability': 'bg-lime-100 dark:bg-lime-900/30 text-lime-800 dark:text-lime-300'
+      'AI': 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-lg shadow-purple-500/25',
+      'Climate': 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/25',
+      'FinTech': 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25',
+      'Healthcare': 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg shadow-red-500/25',
+      'Education': 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/25',
+      'Gaming': 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-lg shadow-indigo-500/25',
+      'Social Impact': 'bg-gradient-to-r from-pink-500 to-pink-600 text-white shadow-lg shadow-pink-500/25',
+      'Blockchain': 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25',
+      'IoT': 'bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-lg shadow-teal-500/25',
+      'Machine Learning': 'bg-gradient-to-r from-violet-500 to-violet-600 text-white shadow-lg shadow-violet-500/25',
+      'Data': 'bg-gradient-to-r from-cyan-500 to-cyan-600 text-white shadow-lg shadow-cyan-500/25',
+      'Mobile': 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/25',
+      'Web': 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg shadow-sky-500/25',
+      'Sustainability': 'bg-gradient-to-r from-lime-500 to-lime-600 text-white shadow-lg shadow-lime-500/25'
     };
     
-    return colors[tagName as keyof typeof colors] || 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300';
+    return colors[tagName as keyof typeof colors] || 'bg-gradient-to-r from-gray-500 to-gray-600 text-white shadow-lg shadow-gray-500/25';
   };
   
   if (isLoading) {
@@ -140,15 +140,15 @@ const Hackathons = () => {
       {allTags.length > 0 && (
         <div className="mb-8">
           <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Popular Tags</h2>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-3">
             {allTags.map((tag) => (
               <button
                 key={tag}
                 onClick={() => toggleTag(tag)}
-                className={`px-3 py-1 rounded-full text-sm font-medium transition-all duration-300 hover:scale-105 ${
+                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 hover:scale-105 transform ${
                   selectedTags.includes(tag)
-                    ? 'bg-electric-blue-500 text-white shadow-lg shadow-electric-blue-500/25'
-                    : getTagColor(tag) + ' hover:shadow-md'
+                    ? 'bg-gradient-to-r from-electric-blue-500 to-electric-blue-600 text-white shadow-xl shadow-electric-blue-500/40 scale-105'
+                    : getTagColor(tag) + ' hover:shadow-xl'
                 }`}
               >
                 {tag}
@@ -195,13 +195,13 @@ const Hackathons = () => {
                   {hackathon.hackathon_tag_relations?.slice(0, 3).map((relation: any, index: number) => (
                     <span 
                       key={index} 
-                      className={`text-xs px-2 py-1 rounded-full font-medium ${getTagColor(relation.hackathon_tags.name)}`}
+                      className={`text-xs px-3 py-1 rounded-full font-semibold transition-all duration-300 hover:scale-105 ${getTagColor(relation.hackathon_tags.name)}`}
                     >
                       {relation.hackathon_tags.name}
                     </span>
                   ))}
                   {hackathon.hackathon_tag_relations?.length > 3 && (
-                    <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300 px-2 py-1 rounded-full font-medium">
+                    <span className="text-xs bg-gradient-to-r from-gray-500 to-gray-600 text-white px-3 py-1 rounded-full font-semibold shadow-lg shadow-gray-500/25">
                       +{hackathon.hackathon_tag_relations.length - 3}
                     </span>
                   )}
