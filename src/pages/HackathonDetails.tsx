@@ -297,6 +297,28 @@ const HackathonDetails = () => {
     });
   };
 
+  // Get tag color based on tag name
+  const getTagColor = (tagName: string) => {
+    const colors = {
+      'AI': 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300',
+      'Climate': 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300',
+      'FinTech': 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300',
+      'Healthcare': 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300',
+      'Education': 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300',
+      'Gaming': 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300',
+      'Social Impact': 'bg-pink-100 dark:bg-pink-900/30 text-pink-800 dark:text-pink-300',
+      'Blockchain': 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300',
+      'IoT': 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300',
+      'Machine Learning': 'bg-violet-100 dark:bg-violet-900/30 text-violet-800 dark:text-violet-300',
+      'Data': 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-300',
+      'Mobile': 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300',
+      'Web': 'bg-sky-100 dark:bg-sky-900/30 text-sky-800 dark:text-sky-300',
+      'Sustainability': 'bg-lime-100 dark:bg-lime-900/30 text-lime-800 dark:text-lime-300'
+    };
+    
+    return colors[tagName as keyof typeof colors] || 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300';
+  };
+
   // Check if hackathon is active (between start and end date)
   const endDate = new Date(hackathon.end_date);
   const isActive = today >= startDate && today <= endDate;
@@ -358,7 +380,7 @@ const HackathonDetails = () => {
                 <button 
                   onClick={() => setShowRegistrationModal(true)}
                   disabled={hasEnded || daysLeft < 0}
-                  className="btn bg-axiom-500 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="btn bg-gradient-to-r from-electric-blue-500 to-electric-blue-600 text-white shadow-lg shadow-electric-blue-500/25 hover:shadow-xl hover:shadow-electric-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {hasEnded ? 'Registration Closed' : daysLeft < 0 ? 'Registration Ended' : 'Register Now'}
                 </button>
@@ -370,7 +392,7 @@ const HackathonDetails = () => {
               ) : isActive ? (
                 <button 
                   onClick={() => setShowSubmissionModal(true)}
-                  className="btn bg-green-500 text-white"
+                  className="btn bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg shadow-green-500/25 hover:shadow-xl hover:shadow-green-500/40"
                 >
                   <Upload size={18} />
                   Submit Project
@@ -609,7 +631,7 @@ const HackathonDetails = () => {
                   {hackathon.hackathon_tag_relations?.map((relation: any, index: number) => (
                     <span 
                       key={index} 
-                      className="text-sm bg-gray-100 dark:bg-axiom-800 text-gray-800 dark:text-gray-300 px-3 py-1 rounded-full"
+                      className={`text-sm px-3 py-1 rounded-full font-medium ${getTagColor(relation.hackathon_tags.name)}`}
                     >
                       {relation.hackathon_tags.name}
                     </span>

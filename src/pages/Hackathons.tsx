@@ -68,6 +68,28 @@ const Hackathons = () => {
       year: 'numeric'
     });
   };
+
+  // Get tag color based on tag name
+  const getTagColor = (tagName: string) => {
+    const colors = {
+      'AI': 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300',
+      'Climate': 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300',
+      'FinTech': 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300',
+      'Healthcare': 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300',
+      'Education': 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300',
+      'Gaming': 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300',
+      'Social Impact': 'bg-pink-100 dark:bg-pink-900/30 text-pink-800 dark:text-pink-300',
+      'Blockchain': 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300',
+      'IoT': 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300',
+      'Machine Learning': 'bg-violet-100 dark:bg-violet-900/30 text-violet-800 dark:text-violet-300',
+      'Data': 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-300',
+      'Mobile': 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300',
+      'Web': 'bg-sky-100 dark:bg-sky-900/30 text-sky-800 dark:text-sky-300',
+      'Sustainability': 'bg-lime-100 dark:bg-lime-900/30 text-lime-800 dark:text-lime-300'
+    };
+    
+    return colors[tagName as keyof typeof colors] || 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300';
+  };
   
   if (isLoading) {
     return (
@@ -123,10 +145,10 @@ const Hackathons = () => {
               <button
                 key={tag}
                 onClick={() => toggleTag(tag)}
-                className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                className={`px-3 py-1 rounded-full text-sm font-medium transition-all duration-300 hover:scale-105 ${
                   selectedTags.includes(tag)
-                    ? 'bg-electric-blue-500 text-white'
-                    : 'bg-gray-100 dark:bg-navy-800 text-gray-800 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-navy-700'
+                    ? 'bg-electric-blue-500 text-white shadow-lg shadow-electric-blue-500/25'
+                    : getTagColor(tag) + ' hover:shadow-md'
                 }`}
               >
                 {tag}
@@ -173,13 +195,13 @@ const Hackathons = () => {
                   {hackathon.hackathon_tag_relations?.slice(0, 3).map((relation: any, index: number) => (
                     <span 
                       key={index} 
-                      className="text-xs bg-gray-100 dark:bg-navy-800 text-gray-800 dark:text-gray-300 px-2 py-1 rounded-full"
+                      className={`text-xs px-2 py-1 rounded-full font-medium ${getTagColor(relation.hackathon_tags.name)}`}
                     >
                       {relation.hackathon_tags.name}
                     </span>
                   ))}
                   {hackathon.hackathon_tag_relations?.length > 3 && (
-                    <span className="text-xs bg-gray-100 dark:bg-navy-800 text-gray-800 dark:text-gray-300 px-2 py-1 rounded-full">
+                    <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300 px-2 py-1 rounded-full font-medium">
                       +{hackathon.hackathon_tag_relations.length - 3}
                     </span>
                   )}
