@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { HackathonService } from '../services/hackathonService';
+import { SubmissionService } from '../services/submissionService';
 import { Navigate } from 'react-router-dom';
 import { 
   Plus, 
@@ -21,8 +22,11 @@ import {
   Github,
   Linkedin,
   Globe,
-  Star
+  Star,
+  Upload,
+  ExternalLink
 } from 'lucide-react';
+import SubmissionCard from '../components/hackathon/SubmissionCard';
 
 interface HackathonForm {
   name: string;
@@ -47,8 +51,11 @@ const OrganizerPanel = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingHackathon, setEditingHackathon] = useState<any>(null);
   const [selectedHackathonRegistrations, setSelectedHackathonRegistrations] = useState<any[]>([]);
+  const [selectedHackathonSubmissions, setSelectedHackathonSubmissions] = useState<any[]>([]);
   const [showRegistrationsModal, setShowRegistrationsModal] = useState(false);
+  const [showSubmissionsModal, setShowSubmissionsModal] = useState(false);
   const [registrationCounts, setRegistrationCounts] = useState<Record<string, number>>({});
+  const [submissionCounts, setSubmissionCounts] = useState<Record<string, number>>({});
   
   const [formData, setFormData] = useState<HackathonForm>({
     name: '',
@@ -79,8 +86,8 @@ const OrganizerPanel = () => {
   }, [activeTab]);
 
   useEffect(() => {
-    // Load registration counts for all hackathons
-    loadRegistrationCounts();
+    // Load registration and submission counts for all hackathons
+    loadCounts();
   }, [myHackathons]);
 
   const loadMyHackathons = async () => {
@@ -97,18 +104,29 @@ const OrganizerPanel = () => {
     }
   };
 
-  const loadRegistrationCounts = async () => {
+  const loadCounts = async () => {
     try {
-      const counts: Record<string, number> = {};
+      const regCounts: Record<string, number> = {};
+      const subCounts: Record<string, number> = {};
+      
       await Promise.all(
         myHackathons.map(async (hackathon) => {
+          // Load registrations grouped by teams
           const registrations = await HackathonService.getHackathonRegistrations(hackathon.id);
-          counts[hackathon.id] = registrations.length;
+          const teamRegistrations = registrations.filter(r => r.registration_type === 'team');
+          const individualRegistrations = registrations.filter(r => r.registration_type === 'individual');
+          regCounts[hackathon.id] = teamRegistrations.length + individualRegistrations.length;
+
+          // Load submissions
+          const submissions = await SubmissionService.getHackathonSubmissions(hackathon.id);
+          subCounts[hackathon.id] = submissions.length;
         })
       );
-      setRegistrationCounts(counts);
+      
+      setRegistrationCounts(regCounts);
+      setSubmissionCounts(subCounts);
     } catch (error) {
-      console.error('Error loading registration counts:', error);
+      console.error('Error loading counts:', error);
     }
   };
 
@@ -116,13 +134,60 @@ const OrganizerPanel = () => {
     try {
       setIsLoading(true);
       const registrations = await HackathonService.getHackathonRegistrations(hackathonId);
-      setSelectedHackathonRegistrations(registrations);
+      
+      // Group registrations by teams and individuals
+      const teamRegistrations = registrations.filter(r => r.registration_type === 'team');
+      const individualRegistrations = registrations.filter(r => r.registration_type === 'individual');
+      
+      // For team registrations, we want to show unique teams, not individual team members
+      const uniqueTeams = teamRegistrations.reduce((acc: any[], reg) => {
+        if (reg.team && !acc.find(t => t.team?.id === reg.team.id)) {
+          acc.push(reg);
+        }
+        return acc;
+      }, []);
+      
+      setSelectedHackathonRegistrations([...uniqueTeams, ...individualRegistrations]);
       setShowRegistrationsModal(true);
     } catch (error) {
       console.error('Error loading registrations:', error);
       showError('Failed to load registrations', 'Please try again.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadHackathonSubmissions = async (hackathonId: string) => {
+    try {
+      setIsLoading(true);
+      const submissions = await SubmissionService.getHackathonSubmissions(hackathonId);
+      setSelectedHackathonSubmissions(submissions);
+      setShowSubmissionsModal(true);
+    } catch (error) {
+      console.error('Error loading submissions:', error);
+      showError('Failed to load submissions', 'Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePlacementUpdate = async (submissionId: string, placement: number) => {
+    try {
+      await SubmissionService.updateSubmissionPlacement(submissionId, placement);
+      
+      // Update local state
+      setSelectedHackathonSubmissions(prev => 
+        prev.map(sub => 
+          sub.id === submissionId 
+            ? { ...sub, placement }
+            : sub
+        )
+      );
+      
+      showSuccess('Placement updated!', `Submission has been ranked #${placement}.`);
+    } catch (error) {
+      console.error('Error updating placement:', error);
+      showError('Failed to update placement', 'Please try again.');
     }
   };
 
@@ -675,28 +740,40 @@ const OrganizerPanel = () => {
                           <Clock size={14} />
                           <span>Registration until {hackathon.registration_deadline}</span>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <Upload size={14} />
+                          <span>{submissionCounts[hackathon.id] || 0} submissions</span>
+                        </div>
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={() => window.open(`/hackathons/${hackathon.id}`, '_blank')}
-                          className="btn btn-secondary flex-1 text-sm py-2"
+                          className="btn btn-secondary text-sm py-2"
                         >
                           <Eye size={16} />
                           View
                         </button>
                         <button
                           onClick={() => loadHackathonRegistrations(hackathon.id)}
-                          className="btn btn-primary flex-1 text-sm py-2"
+                          className="btn btn-primary text-sm py-2"
                         >
                           <Users size={16} />
-                          Registrations
+                          Teams
+                        </button>
+                        <button
+                          onClick={() => loadHackathonSubmissions(hackathon.id)}
+                          className="btn btn-primary text-sm py-2"
+                        >
+                          <Upload size={16} />
+                          Submissions
                         </button>
                         <button
                           onClick={() => handleEdit(hackathon)}
-                          className="btn btn-secondary text-sm py-2 px-3"
+                          className="btn btn-secondary text-sm py-2"
                         >
                           <Edit size={16} />
+                          Edit
                         </button>
                       </div>
                     </div>
@@ -716,7 +793,7 @@ const OrganizerPanel = () => {
           <div className="relative w-full max-w-4xl card-elevated animate-scale-in max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b border-navy-200 dark:border-navy-800">
               <h2 className="text-xl font-bold text-navy-900 dark:text-white">
-                Hackathon Registrations ({selectedHackathonRegistrations.length})
+                Registered Teams & Participants ({selectedHackathonRegistrations.length})
               </h2>
               <button
                 onClick={() => setShowRegistrationsModal(false)}
@@ -739,115 +816,202 @@ const OrganizerPanel = () => {
                 <div className="space-y-4">
                   {selectedHackathonRegistrations.map((registration) => (
                     <div key={registration.id} className="card p-4">
-                      <div className="flex items-start gap-4">
-                        <img
-                          src={registration.user?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(registration.user?.name || 'User')}&background=6366f1&color=fff`}
-                          alt={registration.user?.name}
-                          className="w-12 h-12 rounded-full object-cover"
-                        />
-                        
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h3 className="font-semibold text-navy-900 dark:text-white">
-                              {registration.user?.name}
-                            </h3>
-                            {registration.user?.verified && (
-                              <UserCheck size={16} className="text-electric-blue-500" />
-                            )}
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              registration.status === 'approved' 
-                                ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
-                                : registration.status === 'pending'
-                                  ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
-                                  : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
-                            }`}>
-                              {registration.status}
-                            </span>
-                          </div>
-                          
-                          <div className="text-sm text-navy-600 dark:text-navy-300 mb-2">
-                            @{registration.user?.username}#{registration.user?.hashtag}
-                          </div>
-                          
-                          {registration.user?.bio && (
-                            <p className="text-sm text-navy-600 dark:text-navy-300 mb-3">
-                              {registration.user.bio}
-                            </p>
-                          )}
-                          
-                          <div className="flex items-center gap-4 text-sm">
-                            {registration.user?.location && (
-                              <span className="text-navy-500 dark:text-navy-400">
-                                📍 {registration.user.location}
-                              </span>
-                            )}
-                            {registration.user?.ranking && (
-                              <span className="text-navy-500 dark:text-navy-400 flex items-center gap-1">
-                                <Star size={12} />
-                                {registration.user.ranking} MMR
-                              </span>
-                            )}
-                            <span className="text-navy-500 dark:text-navy-400">
-                              {registration.registration_type === 'team' ? '👥 Team' : '👤 Individual'}
-                            </span>
-                          </div>
-                          
-                          {/* Skills */}
-                          {registration.user?.user_skills && registration.user.user_skills.length > 0 && (
-                            <div className="mt-3">
-                              <div className="flex flex-wrap gap-1">
-                                {registration.user.user_skills.slice(0, 5).map((userSkill: any, index: number) => (
-                                  <span 
-                                    key={index}
-                                    className="text-xs bg-navy-100 dark:bg-navy-800 text-navy-700 dark:text-navy-300 px-2 py-1 rounded-full"
-                                  >
-                                    {userSkill.skill?.name}
-                                  </span>
-                                ))}
-                                {registration.user.user_skills.length > 5 && (
-                                  <span className="text-xs bg-navy-100 dark:bg-navy-800 text-navy-700 dark:text-navy-300 px-2 py-1 rounded-full">
-                                    +{registration.user.user_skills.length - 5} more
-                                  </span>
-                                )}
+                      {registration.team ? (
+                        // Team Registration
+                        <div>
+                          <div className="flex items-center gap-3 mb-3">
+                            <img
+                              src={registration.team.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(registration.team.name)}&background=6366f1&color=fff`}
+                              alt={registration.team.name}
+                              className="w-12 h-12 rounded-full object-cover"
+                            />
+                            <div>
+                              <h3 className="font-bold text-navy-900 dark:text-white">
+                                {registration.team.name}
+                              </h3>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-electric-blue-600 dark:text-electric-blue-400 font-medium">
+                                  Team Registration
+                                </span>
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  registration.status === 'approved' 
+                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                                    : registration.status === 'pending'
+                                      ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
+                                      : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
+                                }`}>
+                                  {registration.status}
+                                </span>
                               </div>
                             </div>
-                          )}
+                          </div>
+
+                          {/* Team Members */}
+                          <div className="ml-15">
+                            <h4 className="font-medium text-navy-700 dark:text-navy-300 mb-2">
+                              Team Members ({registration.team.team_members?.length || 0}):
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {registration.team.team_members?.map((member: any, index: number) => (
+                                <div key={index} className="flex items-center gap-3 p-3 bg-navy-50 dark:bg-navy-800 rounded-xl">
+                                  <img
+                                    src={member.user?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.user?.name || 'User')}&background=6366f1&color=fff`}
+                                    alt={member.user?.name}
+                                    className="w-8 h-8 rounded-full object-cover"
+                                  />
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium text-navy-900 dark:text-white">
+                                        {member.user?.name}
+                                      </span>
+                                      {member.user?.verified && (
+                                        <UserCheck size={14} className="text-electric-blue-500" />
+                                      )}
+                                    </div>
+                                    <div className="text-sm text-navy-600 dark:text-navy-300">
+                                      @{member.user?.username}#{member.user?.hashtag}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         </div>
-                        
-                        <div className="flex gap-2">
-                          {registration.user?.github_url && (
-                            <a
-                              href={`https://${registration.user.github_url}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-2 rounded-xl text-navy-500 dark:text-navy-400 hover:bg-navy-100 dark:hover:bg-navy-800 transition-colors"
-                            >
-                              <Github size={16} />
-                            </a>
-                          )}
-                          {registration.user?.linkedin_url && (
-                            <a
-                              href={`https://${registration.user.linkedin_url}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-2 rounded-xl text-navy-500 dark:text-navy-400 hover:bg-navy-100 dark:hover:bg-navy-800 transition-colors"
-                            >
-                              <Linkedin size={16} />
-                            </a>
-                          )}
-                          {registration.user?.website_url && (
-                            <a
-                              href={registration.user.website_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-2 rounded-xl text-navy-500 dark:text-navy-400 hover:bg-navy-100 dark:hover:bg-navy-800 transition-colors"
-                            >
-                              <Globe size={16} />
-                            </a>
-                          )}
+                      ) : (
+                        // Individual Registration
+                        <div className="flex items-start gap-4">
+                          <img
+                            src={registration.user?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(registration.user?.name || 'User')}&background=6366f1&color=fff`}
+                            alt={registration.user?.name}
+                            className="w-12 h-12 rounded-full object-cover"
+                          />
+                          
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <h3 className="font-semibold text-navy-900 dark:text-white">
+                                {registration.user?.name}
+                              </h3>
+                              {registration.user?.verified && (
+                                <UserCheck size={16} className="text-electric-blue-500" />
+                              )}
+                              <span className="text-sm text-purple-600 dark:text-purple-400 font-medium">
+                                Individual
+                              </span>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                registration.status === 'approved' 
+                                  ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                                  : registration.status === 'pending'
+                                    ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
+                                    : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
+                              }`}>
+                                {registration.status}
+                              </span>
+                            </div>
+                            
+                            <div className="text-sm text-navy-600 dark:text-navy-300 mb-2">
+                              @{registration.user?.username}#{registration.user?.hashtag}
+                            </div>
+                            
+                            {registration.user?.bio && (
+                              <p className="text-sm text-navy-600 dark:text-navy-300 mb-3">
+                                {registration.user.bio}
+                              </p>
+                            )}
+                            
+                            <div className="flex items-center gap-4 text-sm">
+                              {registration.user?.location && (
+                                <span className="text-navy-500 dark:text-navy-400">
+                                  📍 {registration.user.location}
+                                </span>
+                              )}
+                              {registration.user?.ranking && (
+                                <span className="text-navy-500 dark:text-navy-400 flex items-center gap-1">
+                                  <Star size={12} />
+                                  {registration.user.ranking} MMR
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="flex gap-2">
+                            {registration.user?.github_url && (
+                              <a
+                                href={`https://${registration.user.github_url}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-2 rounded-xl text-navy-500 dark:text-navy-400 hover:bg-navy-100 dark:hover:bg-navy-800 transition-colors"
+                              >
+                                <Github size={16} />
+                              </a>
+                            )}
+                            {registration.user?.linkedin_url && (
+                              <a
+                                href={`https://${registration.user.linkedin_url}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-2 rounded-xl text-navy-500 dark:text-navy-400 hover:bg-navy-100 dark:hover:bg-navy-800 transition-colors"
+                              >
+                                <Linkedin size={16} />
+                              </a>
+                            )}
+                            {registration.user?.website_url && (
+                              <a
+                                href={registration.user.website_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-2 rounded-xl text-navy-500 dark:text-navy-400 hover:bg-navy-100 dark:hover:bg-navy-800 transition-colors"
+                              >
+                                <Globe size={16} />
+                              </a>
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Submissions Modal */}
+      {showSubmissionsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowSubmissionsModal(false)}></div>
+          
+          <div className="relative w-full max-w-6xl card-elevated animate-scale-in max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-navy-200 dark:border-navy-800">
+              <h2 className="text-xl font-bold text-navy-900 dark:text-white">
+                Project Submissions ({selectedHackathonSubmissions.length})
+              </h2>
+              <button
+                onClick={() => setShowSubmissionsModal(false)}
+                className="p-2 rounded-xl text-navy-500 dark:text-navy-400 hover:bg-navy-100 dark:hover:bg-navy-800 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto max-h-96 p-6">
+              {selectedHackathonSubmissions.length === 0 ? (
+                <div className="text-center py-8">
+                  <Upload size={48} className="mx-auto text-navy-400 dark:text-navy-500 mb-4" />
+                  <h3 className="text-lg font-medium text-navy-900 dark:text-white mb-2">No submissions yet</h3>
+                  <p className="text-navy-600 dark:text-navy-300">
+                    Project submissions will appear here once participants submit their work.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {selectedHackathonSubmissions.map((submission) => (
+                    <SubmissionCard
+                      key={submission.id}
+                      submission={submission}
+                      showPlacement={true}
+                      onPlacementUpdate={handlePlacementUpdate}
+                    />
                   ))}
                 </div>
               )}
